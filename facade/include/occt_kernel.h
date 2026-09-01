@@ -160,6 +160,7 @@ class OcctKernel {
     uint32_t revolve(uint32_t shapeId, double px, double py, double pz, double dx, double dy,
                      double dz, double angleRad);
     uint32_t fillet(uint32_t solidId, std::vector<uint32_t> edgeIds, double radius);
+    uint32_t fillet2D(uint32_t wireId, double radius);
     uint32_t chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance);
     uint32_t chamferDistAngle(uint32_t solidId, std::vector<uint32_t> edgeIds, double distance,
                               double angleDeg);
@@ -241,6 +242,10 @@ class OcctKernel {
     uint32_t mirror(uint32_t id, double px, double py, double pz, double nx, double ny, double nz);
     uint32_t copy(uint32_t id);
     uint32_t transform(uint32_t id, std::vector<double> matrix);
+    uint32_t transformShapeAx3(uint32_t shapeId, double fox, double foy, double foz, double fnx,
+                               double fny, double fnz, double fxx, double fxy, double fxz,
+                               double tox, double toy, double toz, double tnx, double tny,
+                               double tnz, double txx, double txy, double txz);
     uint32_t located(uint32_t id, std::vector<double> matrix);
     uint32_t generalTransform(uint32_t id, std::vector<double> matrix);
     uint32_t linearPattern(uint32_t id, double dx, double dy, double dz, double spacing, int count);
@@ -298,6 +303,7 @@ class OcctKernel {
 
     // --- Query / Measure ---
     BBoxData getBoundingBox(uint32_t id, bool useTriangulation);
+    BBoxData getBoundingBoxFast(uint32_t id);
     double getVolume(uint32_t id);
     double getSurfaceArea(uint32_t id);
     double getLength(uint32_t id);
@@ -325,6 +331,7 @@ class OcctKernel {
     std::string curveType(uint32_t edgeId);
     std::vector<double> curvePointAtParam(uint32_t edgeId, double param);
     std::vector<double> curveTangent(uint32_t edgeId, double param);
+    std::vector<double> wireFirstPointTangent(uint32_t wireId);
     std::vector<double> curveParameters(uint32_t edgeId);
     bool curveIsClosed(uint32_t edgeId);
     bool curveIsPeriodic(uint32_t edgeId);

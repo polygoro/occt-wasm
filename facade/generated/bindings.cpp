@@ -132,6 +132,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("fillet", &OcctKernel::fillet)
         .function("chamfer", &OcctKernel::chamfer)
         .function("chamferDistAngle", &OcctKernel::chamferDistAngle)
+        .function("fillet2D", &OcctKernel::fillet2D)
         .function("shell", &OcctKernel::shell)
         .function("offset", &OcctKernel::offset)
         .function("draft", &OcctKernel::draft)
@@ -154,6 +155,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("linearPattern", &OcctKernel::linearPattern)
         .function("circularPattern", &OcctKernel::circularPattern)
         .function("transform", &OcctKernel::transform)
+        .function("transformShapeAx3", &OcctKernel::transformShapeAx3)
         .function("located", &OcctKernel::located)
         .function("generalTransform", &OcctKernel::generalTransform)
         .function("translateBatch", &OcctKernel::translateBatch)
@@ -211,6 +213,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
 
         // query
         .function("getBoundingBox", &OcctKernel::getBoundingBox)
+        .function("getBoundingBoxFast", &OcctKernel::getBoundingBoxFast)
         .function("getVolume", &OcctKernel::getVolume)
         .function("getSurfaceArea", &OcctKernel::getSurfaceArea)
         .function("getLength", &OcctKernel::getLength)
@@ -237,6 +240,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("curveType", &OcctKernel::curveType)
         .function("curvePointAtParam", &OcctKernel::curvePointAtParam)
         .function("curveTangent", &OcctKernel::curveTangent)
+        .function("wireFirstPointTangent", &OcctKernel::wireFirstPointTangent)
         .function("curveParameters", &OcctKernel::curveParameters)
         .function("curveIsClosed", &OcctKernel::curveIsClosed)
         .function("curveLength", &OcctKernel::curveLength)

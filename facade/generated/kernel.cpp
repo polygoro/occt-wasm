@@ -32,6 +32,7 @@
 #include <BRepFill_TypeOfContact.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
+#include <BRepFilletAPI_MakeFillet2d.hxx>
 #include <BRepGProp.hxx>
 #include <BRepLProp_SLProps.hxx>
 #include <BRepLib.hxx>
@@ -178,6 +179,25 @@
 #include <vector>
 
 // === helper functions ===
+
+/// Unwrap a singleton compound: if `shape` is a Compound holding exactly one
+/// Solid, return that Solid.
+///
+/// `BRepFilletAPI_MakeFillet`/`MakeChamfer` wrap their result in a Compound even
+/// for single-solid input. A later call that expects a Solid then fails in the
+/// `TopoDS::Solid(...)` cast with Standard_TypeMismatch, which surfaces as a WASM
+/// trap -- so chained fillet/chamfer breaks. Restoring the Solid type here makes
+/// chaining behave as it does through OCP's direct pybind11 binding.
+static TopoDS_Shape unwrapSingletonSolid(const TopoDS_Shape& shape) {
+    if (shape.IsNull() || shape.ShapeType() != TopAbs_COMPOUND) return shape;
+    TopoDS_Shape onlySolid;
+    int count = 0;
+    for (TopExp_Explorer exp(shape, TopAbs_SOLID); exp.More(); exp.Next()) {
+        onlySolid = exp.Current();
+        if (++count > 1) return shape;  // multiple solids: keep the compound
+    }
+    return count == 1 ? onlySolid : shape;
+}
 
 /// Build evolution data by tracking Modified/Generated/Deleted faces.
 static EvolutionData buildEvolution(BRepBuilderAPI_MakeShape& maker, uint32_t resultId,
@@ -613,7 +633,7 @@ uint32_t OcctKernel::fillet(uint32_t solidId, std::vector<uint32_t> edgeIds, dou
         if (!maker.IsDone()) {
             throw std::runtime_error("fillet: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("fillet: ") + e.what());
     }
@@ -629,7 +649,7 @@ uint32_t OcctKernel::chamfer(uint32_t solidId, std::vector<uint32_t> edgeIds, do
         if (!maker.IsDone()) {
             throw std::runtime_error("chamfer: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamfer: ") + e.what());
     }
@@ -659,9 +679,50 @@ uint32_t OcctKernel::chamferDistAngle(uint32_t solidId, std::vector<uint32_t> ed
         if (!maker.IsDone()) {
             throw std::runtime_error("chamferDistAngle: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferDistAngle: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::fillet2D(uint32_t wireId, double radius) {
+    try {
+        const TopoDS_Wire wire = TopoDS::Wire(get(wireId));
+        BRepBuilderAPI_MakeFace mkFace(wire);
+        if (!mkFace.IsDone()) {
+            throw std::runtime_error("fillet2D: cannot build face from wire");
+        }
+        TopoDS_Face face = mkFace.Face();
+        BRepFilletAPI_MakeFillet2d maker(face);
+        std::vector<gp_Pnt> seen;
+        const double eps = 1e-7;
+        for (TopExp_Explorer exp(face, TopAbs_VERTEX); exp.More(); exp.Next()) {
+            const TopoDS_Vertex& v = TopoDS::Vertex(exp.Current());
+            gp_Pnt p = BRep_Tool::Pnt(v);
+            bool dup = false;
+            for (const auto& q : seen) {
+                if (std::abs(p.X() - q.X()) < eps && std::abs(p.Y() - q.Y()) < eps
+                    && std::abs(p.Z() - q.Z()) < eps) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (dup) continue;
+            seen.push_back(p);
+            try {
+                maker.AddFillet(v, radius);
+            } catch (const Standard_Failure&) {
+                // Skip vertices where the fillet is geometrically impossible.
+            }
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("fillet2D: operation failed");
+        }
+        TopoDS_Face result = TopoDS::Face(maker.Shape());
+        return store(BRepTools::OuterWire(result));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("fillet2D: ") + e.what());
     }
 }
 
@@ -783,7 +844,7 @@ uint32_t OcctKernel::filletVariable(uint32_t solidId, uint32_t edgeId, double st
         if (!maker.IsDone()) {
             throw std::runtime_error("filletVariable: operation failed");
         }
-        return store(maker.Shape());
+        return store(unwrapSingletonSolid(maker.Shape()));
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletVariable: ") + e.what());
     }
@@ -809,7 +870,7 @@ std::vector<uint32_t> OcctKernel::filletBatch(std::vector<uint32_t> solidIds, st
             }
             maker.Build();
             if (!maker.IsDone()) throw std::runtime_error("filletBatch: fillet failed on solid " + std::to_string(i));
-            results.push_back(store(maker.Shape()));
+            results.push_back(store(unwrapSingletonSolid(maker.Shape())));
             edgeOffset += static_cast<size_t>(edgeCounts[i]);
         }
         return results;
@@ -1020,6 +1081,19 @@ uint32_t OcctKernel::transform(uint32_t id, std::vector<double> matrix) {
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("transform: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::transformShapeAx3(uint32_t shapeId, double fox, double foy, double foz, double fnx, double fny, double fnz, double fxx, double fxy, double fxz, double tox, double toy, double toz, double tnx, double tny, double tnz, double txx, double txy, double txz) {
+    try {
+        gp_Ax3 fromAx(gp_Pnt(fox, foy, foz), gp_Dir(fnx, fny, fnz), gp_Dir(fxx, fxy, fxz));
+        gp_Ax3 toAx(gp_Pnt(tox, toy, toz), gp_Dir(tnx, tny, tnz), gp_Dir(txx, txy, txz));
+        gp_Trsf trsf;
+        trsf.SetTransformation(toAx, fromAx);
+        BRepBuilderAPI_Transform maker(get(shapeId), trsf, true);
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("transformShapeAx3: ") + e.what());
     }
 }
 
@@ -2024,6 +2098,22 @@ BBoxData OcctKernel::getBoundingBox(uint32_t id, bool useTriangulation) {
     }
 }
 
+BBoxData OcctKernel::getBoundingBoxFast(uint32_t id) {
+    try {
+        const auto& shape = get(id);
+        Bnd_Box box;
+        BRepBndLib::Add(shape, box);
+        if (box.IsVoid()) {
+            throw std::runtime_error("getBoundingBoxFast: shape has no geometry");
+        }
+        BBoxData result{};
+        box.Get(result.xmin, result.ymin, result.zmin, result.xmax, result.ymax, result.zmax);
+        return result;
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("getBoundingBoxFast: ") + e.what());
+    }
+}
+
 double OcctKernel::getVolume(uint32_t id) {
     try {
         const auto& shape = get(id);
@@ -2404,6 +2494,23 @@ std::vector<double> OcctKernel::curveTangent(uint32_t id, double param) {
         return {tangent.X(), tangent.Y(), tangent.Z()};
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveTangent: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::wireFirstPointTangent(uint32_t wireId) {
+    try {
+        BRepAdaptor_CompCurve adaptor(TopoDS::Wire(get(wireId)));
+        const Standard_Real t0 = adaptor.FirstParameter();
+        gp_Pnt p;
+        gp_Vec v;
+        adaptor.D1(t0, p, v);
+        if (v.Magnitude() < 1e-12) {
+            throw std::runtime_error("wireFirstPointTangent: zero tangent");
+        }
+        v.Normalize();
+        return {p.X(), p.Y(), p.Z(), v.X(), v.Y(), v.Z()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("wireFirstPointTangent: ") + e.what());
     }
 }
 
@@ -3468,7 +3575,7 @@ EvolutionData OcctKernel::filletWithHistory(uint32_t solidId, std::vector<uint32
         if (!maker.IsDone()) {
             throw std::runtime_error("filletWithHistory: operation failed");
         }
-        uint32_t resultId = store(maker.Shape());
+        uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
         return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("filletWithHistory: ") + e.what());
@@ -3546,7 +3653,7 @@ EvolutionData OcctKernel::chamferWithHistory(uint32_t solidId, std::vector<uint3
         if (!maker.IsDone()) {
             throw std::runtime_error("chamferWithHistory: operation failed");
         }
-        uint32_t resultId = store(maker.Shape());
+        uint32_t resultId = store(unwrapSingletonSolid(maker.Shape()));
         return buildEvolution(maker, resultId, solid, inputFaceHashes, hashUpperBound);
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("chamferWithHistory: ") + e.what());

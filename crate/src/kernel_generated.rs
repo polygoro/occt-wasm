@@ -49,6 +49,7 @@ pub(crate) struct GeneratedFuncs {
     fn_fillet: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer: TypedFunc<(u32, i32, i32, f64), u32>,
     fn_chamfer_dist_angle: TypedFunc<(u32, i32, i32, f64, f64), u32>,
+    fn_fillet2_d: TypedFunc<(u32, f64), u32>,
     fn_shell: TypedFunc<(u32, i32, i32, f64, f64), u32>,
     fn_offset: TypedFunc<(u32, f64, f64), u32>,
     fn_draft: TypedFunc<(u32, u32, f64, f64, f64, f64), u32>,
@@ -118,6 +119,7 @@ pub(crate) struct GeneratedFuncs {
     fn_adjacent_faces: TypedFunc<(u32, u32), i32>,
     fn_shared_edges: TypedFunc<(u32, u32), i32>,
     fn_get_bounding_box: TypedFunc<(u32, i32), i32>,
+    fn_get_bounding_box_fast: TypedFunc<(u32,), i32>,
     fn_get_volume: TypedFunc<(u32,), f64>,
     fn_get_surface_area: TypedFunc<(u32,), f64>,
     fn_get_length: TypedFunc<(u32,), f64>,
@@ -141,6 +143,7 @@ pub(crate) struct GeneratedFuncs {
     fn_curve_type: TypedFunc<(u32,), i32>,
     fn_curve_point_at_param: TypedFunc<(u32, f64), i32>,
     fn_curve_tangent: TypedFunc<(u32, f64), i32>,
+    fn_wire_first_point_tangent: TypedFunc<(u32,), i32>,
     fn_curve_parameters: TypedFunc<(u32,), i32>,
     fn_curve_is_closed: TypedFunc<(u32,), i32>,
     fn_curve_length: TypedFunc<(u32,), f64>,
@@ -277,6 +280,7 @@ impl GeneratedFuncs {
             fn_chamfer: instance.get_typed_func(&mut store, "occt_chamfer")?,
             fn_chamfer_dist_angle: instance
                 .get_typed_func(&mut store, "occt_chamfer_dist_angle")?,
+            fn_fillet2_d: instance.get_typed_func(&mut store, "occt_fillet2_d")?,
             fn_shell: instance.get_typed_func(&mut store, "occt_shell")?,
             fn_offset: instance.get_typed_func(&mut store, "occt_offset")?,
             fn_draft: instance.get_typed_func(&mut store, "occt_draft")?,
@@ -352,6 +356,8 @@ impl GeneratedFuncs {
             fn_adjacent_faces: instance.get_typed_func(&mut store, "occt_adjacent_faces")?,
             fn_shared_edges: instance.get_typed_func(&mut store, "occt_shared_edges")?,
             fn_get_bounding_box: instance.get_typed_func(&mut store, "occt_get_bounding_box")?,
+            fn_get_bounding_box_fast: instance
+                .get_typed_func(&mut store, "occt_get_bounding_box_fast")?,
             fn_get_volume: instance.get_typed_func(&mut store, "occt_get_volume")?,
             fn_get_surface_area: instance.get_typed_func(&mut store, "occt_get_surface_area")?,
             fn_get_length: instance.get_typed_func(&mut store, "occt_get_length")?,
@@ -382,6 +388,8 @@ impl GeneratedFuncs {
             fn_curve_point_at_param: instance
                 .get_typed_func(&mut store, "occt_curve_point_at_param")?,
             fn_curve_tangent: instance.get_typed_func(&mut store, "occt_curve_tangent")?,
+            fn_wire_first_point_tangent: instance
+                .get_typed_func(&mut store, "occt_wire_first_point_tangent")?,
             fn_curve_parameters: instance.get_typed_func(&mut store, "occt_curve_parameters")?,
             fn_curve_is_closed: instance.get_typed_func(&mut store, "occt_curve_is_closed")?,
             fn_curve_length: instance.get_typed_func(&mut store, "occt_curve_length")?,
@@ -901,6 +909,18 @@ impl crate::kernel::OcctKernel {
         self.check_error("chamfer_dist_angle")?;
         if result == 0 {
             return Err(self.read_last_error("chamfer_dist_angle"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn fillet2_d(&mut self, wire_id: ShapeHandle, radius: f64) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_fillet2_d
+            .call(&mut self.store, (wire_id.0, radius))?;
+        self.check_error("fillet2_d")?;
+        if result == 0 {
+            return Err(self.read_last_error("fillet2_d"));
         }
         Ok(ShapeHandle(result))
     }
@@ -2314,6 +2334,17 @@ impl crate::kernel::OcctKernel {
         self.read_bbox_result()
     }
 
+    pub fn get_bounding_box_fast(&mut self, id: ShapeHandle) -> OcctResult<BoundingBox> {
+        let status = self
+            .generated
+            .fn_get_bounding_box_fast
+            .call(&mut self.store, (id.0,))?;
+        if status < 0 {
+            return Err(self.read_last_error("get_bounding_box_fast"));
+        }
+        self.read_bbox_result()
+    }
+
     pub fn get_volume(&mut self, id: ShapeHandle) -> OcctResult<f64> {
         let result = self
             .generated
@@ -2593,6 +2624,17 @@ impl crate::kernel::OcctKernel {
             .call(&mut self.store, (id.0, param))?;
         if len < 0 {
             return Err(self.read_last_error("curve_tangent"));
+        }
+        self.read_vec_f64_result()
+    }
+
+    pub fn wire_first_point_tangent(&mut self, wire_id: ShapeHandle) -> OcctResult<Vec<f64>> {
+        let len = self
+            .generated
+            .fn_wire_first_point_tangent
+            .call(&mut self.store, (wire_id.0,))?;
+        if len < 0 {
+            return Err(self.read_last_error("wire_first_point_tangent"));
         }
         self.read_vec_f64_result()
     }

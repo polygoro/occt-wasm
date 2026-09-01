@@ -169,6 +169,7 @@ export interface OcctRawKernel {
     extrude(id: number, dx: number, dy: number, dz: number): number;
     revolve(id: number, px: number, py: number, pz: number, dx: number, dy: number, dz: number, angle: number): number;
     fillet(solidId: number, edgeIds: EmbindVectorU32, radius: number): number;
+    fillet2D(wireId: number, radius: number): number;
     chamfer(solidId: number, edgeIds: EmbindVectorU32, distance: number): number;
     chamferDistAngle(solidId: number, edgeIds: EmbindVectorU32, distance: number, angleDeg: number): number;
     shell(solidId: number, faceIds: EmbindVectorU32, thickness: number, tolerance: number): number;
@@ -223,6 +224,15 @@ export interface OcctRawKernel {
     mirror(id: number, px: number, py: number, pz: number, nx: number, ny: number, nz: number): number;
     copy(id: number): number;
     transform(id: number, matrix: EmbindVectorF64): number;
+    transformShapeAx3(
+        shapeId: number,
+        fox: number, foy: number, foz: number,
+        fnx: number, fny: number, fnz: number,
+        fxx: number, fxy: number, fxz: number,
+        tox: number, toy: number, toz: number,
+        tnx: number, tny: number, tnz: number,
+        txx: number, txy: number, txz: number,
+    ): number;
     located(id: number, matrix: EmbindVectorF64): number;
     generalTransform(id: number, matrix: EmbindVectorF64): number;
     linearPattern(id: number, dx: number, dy: number, dz: number, spacing: number, count: number): number;
@@ -276,6 +286,7 @@ export interface OcctRawKernel {
 
     // Query
     getBoundingBox(id: number, useTriangulation: boolean): BoundingBox;
+    getBoundingBoxFast(id: number): BoundingBox;
     getVolume(id: number): number;
     getSurfaceArea(id: number): number;
     getLength(id: number): number;
@@ -304,6 +315,7 @@ export interface OcctRawKernel {
     curveType(edgeId: number): string;
     curvePointAtParam(edgeId: number, param: number): EmbindVectorF64;
     curveTangent(edgeId: number, param: number): EmbindVectorF64;
+    wireFirstPointTangent(wireId: number): EmbindVectorF64;
     curveParameters(edgeId: number): EmbindVectorF64;
     curveIsClosed(edgeId: number): boolean;
     curveIsPeriodic(edgeId: number): boolean;

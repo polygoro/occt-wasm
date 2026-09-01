@@ -419,6 +419,14 @@ export class OcctKernel {
         });
     }
 
+    /** Round every corner of a closed 2D wire by `radius`
+     * (BRepFilletAPI_MakeFillet2d), returning the outer wire of the filleted
+     * face. Vertices that cannot take the requested radius are left unchanged.
+     * @throws OcctError */
+    fillet2D(wire: ShapeHandle, radius: number): ShapeHandle {
+        return wrap("fillet2D", () => handle(this.#raw.fillet2D(wire, radius)));
+    }
+
     chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: number): ShapeHandle {
         return wrap("chamfer", () => {
             return this.#withU32(edges, (vec) => handle(this.#raw.chamfer(solid, vec, distance)));
@@ -915,6 +923,28 @@ export class OcctKernel {
     }
 
     /**
+     * Transform a shape by the `gp_Trsf` that maps the `from` frame onto the
+     * `to` frame (`gp_Trsf::SetTransformation(gp_Ax3, gp_Ax3)`), the same path
+     * OCP takes -- so results match it numerically rather than only closely.
+     * @throws OcctError
+     */
+    transformShapeAx3(
+        shape: ShapeHandle,
+        from: { origin: Vec3; normal: Vec3; xDir: Vec3 },
+        to: { origin: Vec3; normal: Vec3; xDir: Vec3 },
+    ): ShapeHandle {
+        return wrap("transformShapeAx3", () => handle(this.#raw.transformShapeAx3(
+            shape,
+            from.origin.x, from.origin.y, from.origin.z,
+            from.normal.x, from.normal.y, from.normal.z,
+            from.xDir.x, from.xDir.y, from.xDir.z,
+            to.origin.x, to.origin.y, to.origin.z,
+            to.normal.x, to.normal.y, to.normal.z,
+            to.xDir.x, to.xDir.y, to.xDir.z,
+        )));
+    }
+
+    /**
      * Re-tag a shape with a `TopLoc_Location` from a 3x4 row-major affine matrix
      * (same 12-double layout as {@link transform}). Shares the underlying topology
      * instead of deep-copying it, so a pure move is O(1).
@@ -1379,6 +1409,19 @@ export class OcctKernel {
         return wrap("getBoundingBox", () => this.#raw.getBoundingBox(shape, useTriangulation));
     }
 
+    /**
+     * Approximate bounding box from control-point hulls (`BRepBndLib::Add`).
+     * Roughly an order of magnitude cheaper than {@link getBoundingBox} on
+     * curved geometry, but the box can be loose -- a BSpline overshoots by
+     * about 0.27*r. Use it for high-volume approximate queries (face centres
+     * for selector ordering); use {@link getBoundingBox} when the box itself
+     * is the answer.
+     * @throws OcctError
+     */
+    getBoundingBoxFast(shape: ShapeHandle): BoundingBox {
+        return wrap("getBoundingBoxFast", () => this.#raw.getBoundingBoxFast(shape));
+    }
+
     getVolume(shape: ShapeHandle): number {
         return wrap("getVolume", () => this.#raw.getVolume(shape));
     }
@@ -1566,6 +1609,23 @@ export class OcctKernel {
         return wrap("curveTangent", () => {
             const vec = this.#raw.curveTangent(edge, param);
             return this.#vec3FromEmbind(vec);
+        });
+    }
+
+    /**
+     * Analytical point and unit tangent at a wire's first parameter
+     * (`BRepAdaptor_CompCurve::D1`). Places a sweep profile at the spine start
+     * without tessellating, unlike {@link curveTangent}, which needs a
+     * parameter and returns no point.
+     * @throws OcctError
+     */
+    wireFirstPointTangent(wire: ShapeHandle): { point: Vec3; tangent: Vec3 } {
+        return wrap("wireFirstPointTangent", () => {
+            const v = this.#drainVector(this.#raw.wireFirstPointTangent(wire), Float64Array);
+            return {
+                point: { x: v[0]!, y: v[1]!, z: v[2]! },
+                tangent: { x: v[3]!, y: v[4]!, z: v[5]! },
+            };
         });
     }
 
