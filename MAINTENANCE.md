@@ -163,6 +163,12 @@ make example
 - **`test/new-features.test.ts` の fillet 例外テストは unwrap と衝突しない。**
   あれは compound を**入力**に渡して `TopoDS::Solid` キャストを落とすテスト。
   こちらの unwrap は**出力**側にしか効かない。
+- **SIMD のフラグは Dockerfile ではなく `xtask/src/build.rs` にもある。**
+  Dockerfile の `CMAKE_CXX_FLAGS` は OCCT ライブラリの分だけ。facade の
+  コンパイル・リンクと `wasm-opt` は build.rs のフラグを使う。v1.7.0 系で
+  Dockerfile から SIMD を外していたのに成果物に `f64x2.relaxed_madd` が
+  残っていたのはこれが理由(= Safari/iOS でロードできない)。
+  成果物の検証は `wasm-opt` に relaxed-simd 抜きの feature set で通すのが早い。
 - **`ERR StepFile ...` のログはエラーではない。** STEPの異常系テストが
   意図的に出しているもの。
 - **facadeのみの変更なら約3分。** 50分かかり始めたらOCCTレイヤの
