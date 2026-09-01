@@ -62,6 +62,7 @@ cargo xtask codegen && cargo fmt --all
 | 〃 | `getBoundingBoxFast()` 追加 | `BRepBndLib::Add`(制御点ハル)版 bbox。upstream の `getBoundingBox` は 3.0.0 以降つねに `AddOptimal`。faceCenter / 貫通工具長で厳密版の15倍高速。`devel/perf.md` 参照 |
 | `facade/include/occt_kernel.h` | 上記4メソッドの宣言 | |
 | `ts/src/raw-types.ts` / `index.ts` / `worker.ts` | 上記4メソッドの TS ラッパー | |
+| `Dockerfile` | 高価なレイヤの後ろに `COPY README.md ./` / `COPY examples/` / `COPY benchmarks/` を追加 | standalone Dockerfile がこれらを入れないため `test/static-server.test.ts` が2件落ち、`ts` の `prepack`(`cp ../README.md README.md`)も失敗する。upstream に出せる修正 |
 | `occt/`(submodule) | `origin/wasm-patches-v5`(a9ee3e8) | OCCT 8.0.1 + WASM例外互換パッチ + GeomLib flat-deviation fast path。upstream main の pin(055a9a8)より**1コミット先行**しており、この1コミットが gridfinity boolean 約-20%を担う |
 
 **`transformShapeAx3` は19スカラー**で wasmtime の16引数上限を超えるため、
