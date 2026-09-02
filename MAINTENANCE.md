@@ -2,15 +2,20 @@
 
 このディレクトリは upstream [andymai/occt-wasm](https://github.com/andymai/occt-wasm)
 **v4.3.2** のチェックアウトに**ローカル改変を積んだ状態**で運用している。
-ビルド成果物は `typescript/vendor/occt-wasm-4.3.2-psN.tgz` として同梱し、
-`typescript/packages/core/package.json` が参照する。
+ビルド成果物は **fork のリリース資産**として配布し、
+`typescript/packages/{core,cli}/package.json` が URL で直接参照する:
+`https://github.com/polygoro/occt-wasm/releases/download/v4.3.2-psN/occt-wasm-4.3.2-psN.tgz`
+
+パッチを積んだブランチは **`ps`**。upstream の新版に追従するときもこのブランチを
+rebase し、`v<upstream>-psN` のタグでリリースする。
 
 > **OCCT は 8.0.1**(andymai fork の `wasm-patches-v5` = a9ee3e8)。
 > Python OCP と同じ 7.9.3 に揃える当初方針は 2026-09-01 に放棄した。
 > 経緯は `devel/archive/occt8-impact202609.md`、v1.7.0 からの追従計画と
 > 既存 fix の要不要判定は `devel/occt-wasm-upgrade202609.md`。
 
-vendoring の経緯は `typescript/vendor/README.md` が正典。
+vendoring は 2026-09-02 に終了した。ビルド成果物は fork のリリース資産として
+配布する(§3 step 5)。当時の経緯は `devel/archive/occt-wasm-vendoring.md`。
 本文書は**ビルドする人のための実務ガイド**: 何を変えているか、いつ再ビルドが
 必要か、検証済みの手順、ハマりどころ。
 
@@ -96,7 +101,7 @@ facade / codegen / ts-ラッパー / OCCT に触れたときだけ必要。
 
 ## 3. 再ビルド手順
 
-前提: docker、buildx builder `occt-builder`(無ければ vendor/README.md §4.1)。
+前提: docker、buildx builder `occt-builder`(無ければ `devel/archive/occt-wasm-vendoring.md` §4.1)。
 
 ```bash
 cd occt-wasm
@@ -120,7 +125,7 @@ DOCKER_BUILDKIT=1 docker buildx build --builder occt-builder \
     > /tmp/occt-build-${TAG}.log 2>&1
 echo "exit=$?"
 
-# 5) tgz を抽出して vendor へ
+# 5) tgz を抽出
 #    Dockerfile が `cd ts && npm run build` まで済ませているので、
 #    コンテナ側では version を書き換えて pack するだけでよい。
 CID=$(docker create "occt-wasm:4.3.2-${TAG}" bash -c "
@@ -130,23 +135,32 @@ CID=$(docker create "occt-wasm:4.3.2-${TAG}" bash -c "
     npm pack --pack-destination /tmp/
 ")
 docker start -a "$CID"
-docker cp "$CID:/tmp/occt-wasm-4.3.2-${TAG}.tgz" ../typescript/vendor/
+docker cp "$CID:/tmp/occt-wasm-4.3.2-${TAG}.tgz" /tmp/
 docker rm "$CID"
 
-# 6) 切り替えとインストール
+# 6) fork にリリース(gh を polygoro に切り替えてから: gh auth switch --user polygoro)
+git push polygoro ps
+git tag -a "v4.3.2-${TAG}" -m "PolyScript build: upstream v4.3.2 + local facade patches" ps
+git push polygoro "v4.3.2-${TAG}"
+gh release create "v4.3.2-${TAG}" --repo polygoro/occt-wasm \
+    --title "v4.3.2-${TAG} — PolyScript build" \
+    --notes "upstream v4.3.2 + PolyScript facade patches。内訳は MAINTENANCE.md 1.2" \
+    "/tmp/occt-wasm-4.3.2-${TAG}.tgz"
+
+# 6b) PolyScript 側の参照を差し替えてインストール
 cd ../typescript
-sed -i "s|occt-wasm-4.3.2-ps[0-9]*.tgz|occt-wasm-4.3.2-${TAG}.tgz|" \
-    packages/core/package.json
+URL="https://github.com/polygoro/occt-wasm/releases/download/v4.3.2-${TAG}/occt-wasm-4.3.2-${TAG}.tgz"
+sed -i "s|https://github.com/polygoro/occt-wasm/releases/download/[^\"]*|$URL|" \
+    packages/core/package.json packages/cli/package.json
 pnpm install && make build
 
 # 7) 検証(全部やる。回帰はPythonスナップショットとのトポロジー完全一致)
-make test lint
-(cd packages/core && EXAMPLE=1 npx vitest run test/regression.test.ts)
+make test lint fulltest
 make example
+make binary-test   # 出荷バイナリで26例。wasm 同梱の検査を兼ねる
 
 # 8) 記録
-#    - typescript/vendor/README.md §3 の表に psN を追記
-#    - 本文書 §1.2 の表に改変を追記
+#    - 本文書 1.2 の表に改変を追記
 #    - 性能に関わる変更なら devel/perf.md にも
 ```
 
@@ -189,11 +203,11 @@ make example
 6. §3 の手順でビルド・検証
 
 `unwrapSingletonSolid` は他ユーザーにも有益な汎用のバグ修正なので、
-upstream に PR を出す価値がある(`typescript/vendor/README.md` §7)。
+upstream に PR を出す価値がある(実績: andymai/occt-wasm#288、#289)。
 
 ## 6. 関連文書
 
-- `typescript/vendor/README.md` — vendoring の正典(経緯、ロールバック)
+- `devel/archive/occt-wasm-vendoring.md` — 旧 vendoring 方式の記録(2026-09-02 終了)
 - `devel/occt-wasm-upgrade202609.md` — v1.7.0 → v4.3.2 追従計画と判定
 - `devel/archive/occt8-impact202609.md` — OCCT 8.0.1 移行の実測
 - `devel/perf.md` — 性能計測と `getBoundingBoxFast` 等の背景
