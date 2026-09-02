@@ -7,7 +7,7 @@
 
 > **OCCT は 8.0.1**(andymai fork の `wasm-patches-v5` = a9ee3e8)。
 > Python OCP と同じ 7.9.3 に揃える当初方針は 2026-09-01 に放棄した。
-> 経緯は `devel/occt8-impact202609.md`、v1.7.0 からの追従計画と
+> 経緯は `devel/archive/occt8-impact202609.md`、v1.7.0 からの追従計画と
 > 既存 fix の要不要判定は `devel/occt-wasm-upgrade202609.md`。
 
 vendoring の経緯は `typescript/vendor/README.md` が正典。
@@ -195,6 +195,6 @@ upstream に PR を出す価値がある(`typescript/vendor/README.md` §7)。
 
 - `typescript/vendor/README.md` — vendoring の正典(経緯、ロールバック)
 - `devel/occt-wasm-upgrade202609.md` — v1.7.0 → v4.3.2 追従計画と判定
-- `devel/occt8-impact202609.md` — OCCT 8.0.1 移行の実測
+- `devel/archive/occt8-impact202609.md` — OCCT 8.0.1 移行の実測
 - `devel/perf.md` — 性能計測と `getBoundingBoxFast` 等の背景
 - `devel/occt-wasm.md` — upstream の調査メモ
