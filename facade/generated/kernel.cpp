@@ -2102,7 +2102,11 @@ BBoxData OcctKernel::getBoundingBoxFast(uint32_t id) {
     try {
         const auto& shape = get(id);
         Bnd_Box box;
-        BRepBndLib::Add(shape, box);
+        // useTriangulation = false: with the default (true) a face that has been
+        // meshed -- tessellate() writes its triangulation into the shape -- reports
+        // the mesh's box instead of the surface's, so the same face gives a different
+        // centre before and after a preview. Selectors sort by that centre.
+        BRepBndLib::Add(shape, box, Standard_False);
         if (box.IsVoid()) {
             throw std::runtime_error("getBoundingBoxFast: shape has no geometry");
         }

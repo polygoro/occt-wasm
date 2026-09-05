@@ -65,6 +65,7 @@ cargo xtask codegen && cargo fmt --all
 | 〃 | `wireFirstPointTangent()` 追加 | sweep 開始点の解析的 D1 接線。upstream の `curveTangent` はパラメータを要求し点を返さない。**`ReturnType::VectorDouble`(6要素)** で返している — `ReturnType` に構造体を足さずに済むため |
 | 〃 | `transformShapeAx3()` 追加 | sweep の座標系変換を Python OCP の経路(`gp_Trsf::SetTransformation(gp_Ax3, gp_Ax3)`)に一致させる |
 | 〃 | `getBoundingBoxFast()` 追加 | `BRepBndLib::Add`(制御点ハル)版 bbox。upstream の `getBoundingBox` は 3.0.0 以降つねに `AddOptimal`。faceCenter / 貫通工具長で厳密版の15倍高速。`devel/perf.md` 参照 |
+| 〃 | `getBoundingBoxFast()` を `BRepBndLib::Add(shape, box, Standard_False)` に(**ps2**, 2026-09-05) | `useTriangulation` 既定 true だと、`tessellate()` が形状に書き込んだ三角形からの bbox を返す。同じ面の中心がプレビュー前後で最大 0.06 動き、セレクタの選択とカーネル呼び出しのメモ化(引数キー)がプレビューのたびに壊れていた(07_keyboard_case: 同一ソース再ビルド 72/72 → 41/72)。`devel/perf.md` 2026-09-05 参照 |
 | `facade/include/occt_kernel.h` | 上記4メソッドの宣言 | |
 | `ts/src/raw-types.ts` / `index.ts` / `worker.ts` | 上記4メソッドの TS ラッパー | |
 | `Dockerfile` | 高価なレイヤの後ろに `COPY README.md ./` / `COPY examples/` / `COPY benchmarks/` を追加 | standalone Dockerfile がこれらを入れないため `test/static-server.test.ts` が2件落ち、`ts` の `prepack`(`cp ../README.md README.md`)も失敗する。upstream に出せる修正 |
