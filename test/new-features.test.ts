@@ -529,9 +529,9 @@ describe("Named enums", () => {
 
             // Four edges: two straights and two caps. The midpoint split used
             // to get here must not survive into the result.
-            const edges = kernel.getSubShapes(offset, "edge");
-            expect(edges.size()).toBe(4);
-            edges.delete();
+            const resultEdges = kernel.getSubShapes(offset, "edge");
+            expect(resultEdges.size()).toBe(4);
+            resultEdges.delete();
         });
     });
 

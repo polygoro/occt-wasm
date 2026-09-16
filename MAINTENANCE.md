@@ -69,6 +69,8 @@ cargo xtask codegen && cargo fmt --all
 | `facade/include/occt_kernel.h` | 上記4メソッドの宣言 | |
 | `ts/src/raw-types.ts` / `index.ts` / `worker.ts` | 上記4メソッドの TS ラッパー | |
 | `Dockerfile` | 高価なレイヤの後ろに `COPY README.md ./` / `COPY examples/` / `COPY benchmarks/` を追加 | standalone Dockerfile がこれらを入れないため `test/static-server.test.ts` が2件落ち、`ts` の `prepack`(`cp ../README.md README.md`)も失敗する。upstream に出せる修正 |
+| `occt/`(submodule の作業ツリー) | **OCCT 本体への patch**(**ps3**, 2026-09-16): `IntPatch_ImpPrmIntersection::Perform` でシーム分割後の walking line 片に制限頂点を再付与、`IntPatch_RstInt::PutVertexOnLine` の閉曲面 2D 比較を周期を法とした差に | らせん工具の `cut` が、工具が面境界を横切る角度によって**無言で無切削**になる(valid・1 solid・体積不変)。原因は交線計算(IntPatch)で面境界の頂点が失われ、中点分類で面内区間ごと捨てられること。patch 本体は `patches/0001-IntPatch-*.patch`(+52/−10、2 ファイル)。submodule は commit せず作業ツリー改変のまま `COPY occt/` で Docker に入る。クリーンな checkout に戻したら `git -C occt apply ../patches/0001-*.patch`。調査・検証・上流報告草稿: `../devel/occt-helix-cut-bug202609.md` |
+| `test/new-features.test.ts` | 「単一辺の開 wire の offset」テスト内で `const edges` が二重宣言されていたのを `resultEdges` に | esbuild の parse error で `cd ts && npx vitest run` のゲートが落ち、Docker ビルド全体が失敗していた(e6d2edf で入り、ps2 のビルド後だったので気づかれなかった) |
 | `occt/`(submodule) | `origin/wasm-patches-v5`(a9ee3e8) | OCCT 8.0.1 + WASM例外互換パッチ + GeomLib flat-deviation fast path。upstream main の pin(055a9a8)より**1コミット先行**しており、この1コミットが gridfinity boolean 約-20%を担う |
 
 **`transformShapeAx3` は19スカラー**で wasmtime の16引数上限を超えるため、
@@ -94,7 +96,7 @@ codegen が「npm-only(Rust crate から到達不可)」と警告する。upstre
 |---|---|
 | facade に API を追加・修正した | 本手順で psN+1 を作る(OCCTレイヤはキャッシュされ**約3分**) |
 | upstream occt-wasm の新版に追従する | §5 |
-| OCCT submodule を動かした / CMake フラグを変えた | フルビルド(**約50分**) |
+| OCCT submodule を動かした / `patches/` の OCCT patch を変えた / CMake フラグを変えた | フルビルド(**約50分**) |
 | Emscripten/emsdk を更新したい | `Dockerfile` の base image を変更 → フルビルド |
 
 コアの `.ts` だけの変更(packages/core 側)には再ビルド不要。
