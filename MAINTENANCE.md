@@ -64,12 +64,13 @@ cargo xtask codegen && cargo fmt --all
 | 〃 | `fillet2D()` 追加 | 2Dワイヤの角丸(PolyScript の 2D fillet)。upstream に `BRepFilletAPI_MakeFillet2d` の口はない |
 | 〃 | `wireFirstPointTangent()` 追加 | sweep 開始点の解析的 D1 接線。upstream の `curveTangent` はパラメータを要求し点を返さない。**`ReturnType::VectorDouble`(6要素)** で返している — `ReturnType` に構造体を足さずに済むため |
 | 〃 | `transformShapeAx3()` 追加 | sweep の座標系変換を Python OCP の経路(`gp_Trsf::SetTransformation(gp_Ax3, gp_Ax3)`)に一致させる |
-| 〃 | `getBoundingBoxFast()` 追加 | `BRepBndLib::Add`(制御点ハル)版 bbox。upstream の `getBoundingBox` は 3.0.0 以降つねに `AddOptimal`。faceCenter / 貫通工具長で厳密版の15倍高速。`devel/perf.md` 参照 |
+| 〃 | `getBoundingBoxFast()` 追加 | `BRepBndLib::Add`(制御点ハル)版 bbox。upstream の `getBoundingBox` は 3.0.0 以降つねに `AddOptimal`。faceCenter / 貫通ツール長で厳密版の15倍高速。`devel/perf.md` 参照 |
 | 〃 | `getBoundingBoxFast()` を `BRepBndLib::Add(shape, box, Standard_False)` に(**ps2**, 2026-09-05) | `useTriangulation` 既定 true だと、`tessellate()` が形状に書き込んだ三角形からの bbox を返す。同じ面の中心がプレビュー前後で最大 0.06 動き、セレクタの選択とカーネル呼び出しのメモ化(引数キー)がプレビューのたびに壊れていた(07_keyboard_case: 同一ソース再ビルド 72/72 → 41/72)。`devel/perf.md` 2026-09-05 参照 |
-| `facade/include/occt_kernel.h` | 上記4メソッドの宣言 | |
-| `ts/src/raw-types.ts` / `index.ts` / `worker.ts` | 上記4メソッドの TS ラッパー | |
+| 〃 | `sectionPlane()` 追加(**ps4**, 2026-09-17) | `BRepAlgoAPI_Section` の平面オーバーロード。upstream の `section(a, b)` はツール側も shape なので、平面で切るには対象を覆う大きさの面を bbox から算出して作る必要があり、小さいと**無言で部分的な断面**になる。`gp_Pln` は無限平面なのでサイズ計算が不要。`Approximation` は既定(off)のままなので解析幾何が保たれ、円柱の断面は半径が厳密な円エッジ1本で返る(メッシュ断面は r=20 で面積 −0.32%、直径 −0.05mm)。テストは `test/facade-cad-features.test.ts`。**upstream に PR を出す前提の追加**(`devel/` の検討記録: 2026-09-17) |
+| `facade/include/occt_kernel.h` | 上記5メソッドの宣言 | |
+| `ts/src/raw-types.ts` / `index.ts` / `worker.ts` | 上記5メソッドの TS ラッパー(`worker.ts` は `sectionPlane` / `fillet2D` / `getBoundingBoxFast` のみ。`halfSpace` / `wireFirstPointTangent` / `transformShapeAx3` は未追加) | |
 | `Dockerfile` | 高価なレイヤの後ろに `COPY README.md ./` / `COPY examples/` / `COPY benchmarks/` を追加 | standalone Dockerfile がこれらを入れないため `test/static-server.test.ts` が2件落ち、`ts` の `prepack`(`cp ../README.md README.md`)も失敗する。upstream に出せる修正 |
-| `occt/`(submodule の作業ツリー) | **OCCT 本体への patch**(**ps3**, 2026-09-16): `IntPatch_ImpPrmIntersection::Perform` でシーム分割後の walking line 片に制限頂点を再付与、`IntPatch_RstInt::PutVertexOnLine` の閉曲面 2D 比較を周期を法とした差に | らせん工具の `cut` が、工具が面境界を横切る角度によって**無言で無切削**になる(valid・1 solid・体積不変)。原因は交線計算(IntPatch)で面境界の頂点が失われ、中点分類で面内区間ごと捨てられること。patch 本体は `patches/0001-IntPatch-*.patch`(+52/−10、2 ファイル)。submodule は commit せず作業ツリー改変のまま `COPY occt/` で Docker に入る。クリーンな checkout に戻したら `git -C occt apply ../patches/0001-*.patch`。調査・検証・上流報告草稿: `../devel/occt-helix-cut-bug202609.md` |
+| `occt/`(submodule の作業ツリー) | **OCCT 本体への patch**(**ps3**, 2026-09-16): `IntPatch_ImpPrmIntersection::Perform` でシーム分割後の walking line 片に制限頂点を再付与、`IntPatch_RstInt::PutVertexOnLine` の閉曲面 2D 比較を周期を法とした差に | らせんツールの `cut` が、ツールが面境界を横切る角度によって**無言で無切削**になる(valid・1 solid・体積不変)。原因は交線計算(IntPatch)で面境界の頂点が失われ、中点分類で面内区間ごと捨てられること。patch 本体は `patches/0001-IntPatch-*.patch`(+52/−10、2 ファイル)。submodule は commit せず作業ツリー改変のまま `COPY occt/` で Docker に入る。クリーンな checkout に戻したら `git -C occt apply ../patches/0001-*.patch`。調査・検証・上流報告草稿: `../devel/occt-helix-cut-bug202609.md` |
 | `test/new-features.test.ts` | 「単一辺の開 wire の offset」テスト内で `const edges` が二重宣言されていたのを `resultEdges` に | esbuild の parse error で `cd ts && npx vitest run` のゲートが落ち、Docker ビルド全体が失敗していた(e6d2edf で入り、ps2 のビルド後だったので気づかれなかった) |
 | `occt/`(submodule) | `origin/wasm-patches-v5`(a9ee3e8) | OCCT 8.0.1 + WASM例外互換パッチ + GeomLib flat-deviation fast path。upstream main の pin(055a9a8)より**1コミット先行**しており、この1コミットが gridfinity boolean 約-20%を担う |
 
@@ -207,6 +208,8 @@ make binary-test   # 出荷バイナリで26例。wasm 同梱の検査を兼ね�
 
 `unwrapSingletonSolid` は他ユーザーにも有益な汎用のバグ修正なので、
 upstream に PR を出す価値がある(実績: andymai/occt-wasm#288、#289)。
+`sectionPlane` も同様で、こちらは**バグ修正ではなく API 追加**として出す
+(2026-09-17 の ps4 で追加、PR は未提出)。
 
 ## 6. 関連文書
 
