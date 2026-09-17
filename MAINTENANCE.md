@@ -211,7 +211,14 @@ make binary-test   # 出荷バイナリで26例。wasm 同梱の検査を兼ね�
 upstream に PR を出す価値がある(実績: andymai/occt-wasm#288、#289)。
 `sectionPlane` も同様で、こちらは**バグ修正ではなく API 追加**として出した
 (2026-09-17 の ps4 で追加、PR: andymai/occt-wasm#332)。
-`ts/src/svg.ts` の投影修正(ps5)も汎用のバグ修正なので PR 候補。
+`ts/src/svg.ts` の投影修正(ps5)も汎用のバグ修正なので PR 候補(PR: andymai/occt-wasm#333)。
+
+**上流 PR の名義は `polygoro`**(author / committer とも
+`polygoro <225675153+polygoro@users.noreply.github.com>`)。`ps` に積んだコミットは
+そのままでよく、**PR を出すときに `origin/main` から切ったブランチで作り直す**
+(fork 固有の改変が PR に混ざるのも同時に防げる)。このリポジトリには
+`.git/config` にローカル設定を入れてあるので普通にコミットすれば合う。
+push 前に `git log -1 --format='%an %cn'` で確認すること。
 
 ## 6. 関連文書
 
