@@ -67,6 +67,7 @@ cargo xtask codegen && cargo fmt --all
 | 〃 | `getBoundingBoxFast()` 追加 | `BRepBndLib::Add`(制御点ハル)版 bbox。upstream の `getBoundingBox` は 3.0.0 以降つねに `AddOptimal`。faceCenter / 貫通ツール長で厳密版の15倍高速。`devel/perf.md` 参照 |
 | 〃 | `getBoundingBoxFast()` を `BRepBndLib::Add(shape, box, Standard_False)` に(**ps2**, 2026-09-05) | `useTriangulation` 既定 true だと、`tessellate()` が形状に書き込んだ三角形からの bbox を返す。同じ面の中心がプレビュー前後で最大 0.06 動き、セレクタの選択とカーネル呼び出しのメモ化(引数キー)がプレビューのたびに壊れていた(07_keyboard_case: 同一ソース再ビルド 72/72 → 41/72)。`devel/perf.md` 2026-09-05 参照 |
 | 〃 | `sectionPlane()` 追加(**ps4**, 2026-09-17) | `BRepAlgoAPI_Section` の平面オーバーロード。upstream の `section(a, b)` はツール側も shape なので、平面で切るには対象を覆う大きさの面を bbox から算出して作る必要があり、小さいと**無言で部分的な断面**になる。`gp_Pln` は無限平面なのでサイズ計算が不要。`Approximation` は既定(off)のままなので解析幾何が保たれ、円柱の断面は半径が厳密な円エッジ1本で返る(メッシュ断面は r=20 で面積 −0.32%、直径 −0.05mm)。テストは `test/facade-cad-features.test.ts`。**upstream に PR を出す前提の追加**(`devel/` の検討記録: 2026-09-17) |
+| `ts/src/svg.ts` | 投影を画面座標に落とす式の修正(**ps5**, 2026-09-17) | `projectEdges` はHLRの結果を**ビュー平面**(xはxAxis方向、yはgp_Ax2の縦、zは常に0)で返すのに、レンダラがワールド基底との内積を取り直していた。screen-upがXY平面内のワールド軸でないビューがすべて潰れる: front/back/left/right は線1本、iso はせん断、正しかったのは top/bottom だけ。テストは構造(ラベル・破線・NaN無し)しか見ていなかったので通っていた。`test/svg.test.ts` に全ビューの二軸方向の広がりとアスペクト比の検査を追加。**upstream に PR を出す前提** |
 | `facade/include/occt_kernel.h` | 上記5メソッドの宣言 | |
 | `ts/src/raw-types.ts` / `index.ts` / `worker.ts` | 上記5メソッドの TS ラッパー(`worker.ts` は `sectionPlane` / `fillet2D` / `getBoundingBoxFast` のみ。`halfSpace` / `wireFirstPointTangent` / `transformShapeAx3` は未追加) | |
 | `Dockerfile` | 高価なレイヤの後ろに `COPY README.md ./` / `COPY examples/` / `COPY benchmarks/` を追加 | standalone Dockerfile がこれらを入れないため `test/static-server.test.ts` が2件落ち、`ts` の `prepack`(`cp ../README.md README.md`)も失敗する。upstream に出せる修正 |
@@ -208,8 +209,9 @@ make binary-test   # 出荷バイナリで26例。wasm 同梱の検査を兼ね�
 
 `unwrapSingletonSolid` は他ユーザーにも有益な汎用のバグ修正なので、
 upstream に PR を出す価値がある(実績: andymai/occt-wasm#288、#289)。
-`sectionPlane` も同様で、こちらは**バグ修正ではなく API 追加**として出す
-(2026-09-17 の ps4 で追加、PR は未提出)。
+`sectionPlane` も同様で、こちらは**バグ修正ではなく API 追加**として出した
+(2026-09-17 の ps4 で追加、PR: andymai/occt-wasm#332)。
+`ts/src/svg.ts` の投影修正(ps5)も汎用のバグ修正なので PR 候補。
 
 ## 6. 関連文書
 
