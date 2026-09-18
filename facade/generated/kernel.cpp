@@ -31,6 +31,7 @@
 #include <BRepFill_TypeOfContact.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
+#include <BRepFilletAPI_MakeFillet2d.hxx>
 #include <BRepGProp.hxx>
 #include <BRepLProp_SLProps.hxx>
 #include <BRepLib.hxx>
@@ -938,14 +939,97 @@ uint32_t OcctKernel::offsetWire2D(uint32_t wireId, double offset, int joinType) 
         case 2: jt = GeomAbs_Tangent; break;
         default: jt = GeomAbs_Arc; break;
         }
-        BRepOffsetAPI_MakeOffset maker(TopoDS::Wire(get(wireId)), jt);
+        TopoDS_Wire wire = TopoDS::Wire(get(wireId));
+        
+        // BRepOffsetAPI_MakeOffset reports IsDone() == false for a wire made of a
+        // single edge -- drawing one line and giving it a width is the first thing
+        // anyone tries. Two collinear edges over the same curve succeed and produce
+        // the expected contour, so split the lone edge at its midpoint and let OCCT
+        // do the rest. Nothing here computes geometry: in particular the offset
+        // plane, which a single straight edge does not determine on its own, stays
+        // OCCT's decision.
+        TopoDS_Edge onlyEdge;
+        int edgeCount = 0;
+        bool wasSplit = false;
+        for (TopExp_Explorer edgeExp(wire, TopAbs_EDGE); edgeExp.More(); edgeExp.Next()) {
+            if (edgeCount == 0) {
+                onlyEdge = TopoDS::Edge(edgeExp.Current());
+            }
+            ++edgeCount;
+        }
+        if (edgeCount == 1) {
+            Standard_Real first = 0.0, last = 0.0;
+            Handle(Geom_Curve) curve = BRep_Tool::Curve(onlyEdge, first, last);
+            if (!curve.IsNull()) {
+                const Standard_Real mid = (first + last) * 0.5;
+                BRepBuilderAPI_MakeWire mkWire;
+                mkWire.Add(BRepBuilderAPI_MakeEdge(curve, first, mid).Edge());
+                mkWire.Add(BRepBuilderAPI_MakeEdge(curve, mid, last).Edge());
+                if (mkWire.IsDone()) {
+                    wire = mkWire.Wire();
+                    wasSplit = true;
+                }
+            }
+        }
+        
+        BRepOffsetAPI_MakeOffset maker(wire, jt);
         maker.Perform(offset);
         if (!maker.IsDone()) {
             throw std::runtime_error("offsetWire2D: operation failed");
         }
+        if (wasSplit) {
+            // The split survives into the contour as a redundant vertex on each side
+            // (6 edges where 4 describe the shape). Merge them back, so the result is
+            // the same whether or not the input needed splitting. Scoped to the split
+            // case: collinear edges the caller built on purpose are left alone.
+            ShapeUpgrade_UnifySameDomain unifier(maker.Shape(), true, true, false);
+            unifier.Build();
+            return store(unifier.Shape());
+        }
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("offsetWire2D: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::fillet2D(uint32_t wireId, double radius) {
+    try {
+        const TopoDS_Wire wire = TopoDS::Wire(get(wireId));
+        BRepBuilderAPI_MakeFace mkFace(wire);
+        if (!mkFace.IsDone()) {
+            throw std::runtime_error("fillet2D: cannot build face from wire");
+        }
+        TopoDS_Face face = mkFace.Face();
+        BRepFilletAPI_MakeFillet2d maker(face);
+        std::vector<gp_Pnt> seen;
+        const double eps = 1e-7;
+        for (TopExp_Explorer exp(face, TopAbs_VERTEX); exp.More(); exp.Next()) {
+            const TopoDS_Vertex& v = TopoDS::Vertex(exp.Current());
+            gp_Pnt p = BRep_Tool::Pnt(v);
+            bool dup = false;
+            for (const auto& q : seen) {
+                if (std::abs(p.X() - q.X()) < eps && std::abs(p.Y() - q.Y()) < eps
+                    && std::abs(p.Z() - q.Z()) < eps) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (dup) continue;
+            seen.push_back(p);
+            try {
+                maker.AddFillet(v, radius);
+            } catch (const Standard_Failure&) {
+                // Skip vertices where the fillet is geometrically impossible.
+            }
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("fillet2D: operation failed");
+        }
+        TopoDS_Face result = TopoDS::Face(maker.Shape());
+        return store(BRepTools::OuterWire(result));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("fillet2D: ") + e.what());
     }
 }
 
@@ -991,7 +1075,10 @@ uint32_t OcctKernel::draftPrism(uint32_t shapeId, double dx, double dy, double d
         // Neutral plane: base of the input shape, perpendicular to extrude direction.
         // Compute centroid of input shape bounding box as a point on the base plane.
         Bnd_Box bbox;
-        BRepBndLib::Add(get(shapeId), bbox);
+        // useTriangulation = false: the neutral plane is placed at the centre of this
+        // box, so a box that moved because the shape happens to carry a triangulation
+        // would move the plane and change the drafted result for identical input.
+        BRepBndLib::Add(get(shapeId), bbox, false);
         double xmin, ymin, zmin, xmax, ymax, zmax;
         bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
         gp_Pnt center((xmin + xmax) / 2.0, (ymin + ymax) / 2.0, (zmin + zmax) / 2.0);
@@ -1031,6 +1118,19 @@ uint32_t OcctKernel::translate(uint32_t id, double dx, double dy, double dz) {
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("translate: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::transformShapeAx3(uint32_t shapeId, double fox, double foy, double foz, double fnx, double fny, double fnz, double fxx, double fxy, double fxz, double tox, double toy, double toz, double tnx, double tny, double tnz, double txx, double txy, double txz) {
+    try {
+        gp_Ax3 fromAx(gp_Pnt(fox, foy, foz), gp_Dir(fnx, fny, fnz), gp_Dir(fxx, fxy, fxz));
+        gp_Ax3 toAx(gp_Pnt(tox, toy, toz), gp_Dir(tnx, tny, tnz), gp_Dir(txx, txy, txz));
+        gp_Trsf trsf;
+        trsf.SetTransformation(toAx, fromAx);
+        BRepBuilderAPI_Transform maker(get(shapeId), trsf, true);
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("transformShapeAx3: ") + e.what());
     }
 }
 
@@ -2441,7 +2541,7 @@ std::vector<double> OcctKernel::queryBatch(std::vector<uint32_t> ids) {
             const auto& shape = get(ids[i]);
             { GProp_GProps props; BRepGProp::VolumeProperties(shape, props); result.push_back(props.Mass()); }
             { GProp_GProps props; BRepGProp::SurfaceProperties(shape, props); result.push_back(props.Mass()); }
-            { Bnd_Box box; BRepBndLib::Add(shape, box);
+            { Bnd_Box box; BRepBndLib::Add(shape, box, false);
               if (box.IsVoid()) { for (int j = 0; j < 6; j++) result.push_back(0.0); }
               else { double xmin,ymin,zmin,xmax,ymax,zmax; box.Get(xmin,ymin,zmin,xmax,ymax,zmax);
                      result.push_back(xmin); result.push_back(ymin); result.push_back(zmin);
@@ -2896,6 +2996,23 @@ std::vector<uint32_t> OcctKernel::curveSplit(uint32_t edgeId, double param) {
         return result;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveSplit: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::wireFirstPointTangent(uint32_t wireId) {
+    try {
+        BRepAdaptor_CompCurve adaptor(TopoDS::Wire(get(wireId)));
+        const Standard_Real t0 = adaptor.FirstParameter();
+        gp_Pnt p;
+        gp_Vec v;
+        adaptor.D1(t0, p, v);
+        if (v.Magnitude() < 1e-12) {
+            throw std::runtime_error("wireFirstPointTangent: zero tangent");
+        }
+        v.Normalize();
+        return {p.X(), p.Y(), p.Z(), v.X(), v.Y(), v.Z()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("wireFirstPointTangent: ") + e.what());
     }
 }
 
