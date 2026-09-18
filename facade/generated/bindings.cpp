@@ -144,11 +144,13 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("filletVariable", &OcctKernel::filletVariable)
         .function("filletBatch", &OcctKernel::filletBatch)
         .function("offsetWire2D", &OcctKernel::offsetWire2D)
+        .function("fillet2D", &OcctKernel::fillet2D)
         .function("reverseSurfaceU", &OcctKernel::reverseSurfaceU)
         .function("draftPrism", &OcctKernel::draftPrism)
 
         // transforms
         .function("translate", &OcctKernel::translate)
+        .function("transformShapeAx3", &OcctKernel::transformShapeAx3)
         .function("rotate", &OcctKernel::rotate)
         .function("scale", &OcctKernel::scale)
         .function("mirror", &OcctKernel::mirror)
@@ -254,6 +256,7 @@ EMSCRIPTEN_BINDINGS(occt_wasm) {
         .function("curveKnotInsert", &OcctKernel::curveKnotInsert)
         .function("curveKnotRemove", &OcctKernel::curveKnotRemove)
         .function("curveSplit", &OcctKernel::curveSplit)
+        .function("wireFirstPointTangent", &OcctKernel::wireFirstPointTangent)
 
         // sweep
         .function("pipe", &OcctKernel::pipe)

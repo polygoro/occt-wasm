@@ -937,6 +937,57 @@ return store(maker.Shape());",
         category: "modeling",
         return_type: ReturnType::ShapeId,
     },
+    MethodSpec {
+        name: "fillet2D",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("wireId"), FacadeParam::Double("radius")],
+        occt_class: "",
+        ctor_args: "",
+        // Vertices that cannot take the requested radius are left unchanged
+        // rather than failing the whole wire. Duplicate vertices (a closed
+        // wire reports each corner twice) are filtered by position.
+        setup_code: "\
+const TopoDS_Wire wire = TopoDS::Wire(get(wireId));
+BRepBuilderAPI_MakeFace mkFace(wire);
+if (!mkFace.IsDone()) {
+    throw std::runtime_error(\"fillet2D: cannot build face from wire\");
+}
+TopoDS_Face face = mkFace.Face();
+BRepFilletAPI_MakeFillet2d maker(face);
+std::vector<gp_Pnt> seen;
+const double eps = 1e-7;
+for (TopExp_Explorer exp(face, TopAbs_VERTEX); exp.More(); exp.Next()) {
+    const TopoDS_Vertex& v = TopoDS::Vertex(exp.Current());
+    gp_Pnt p = BRep_Tool::Pnt(v);
+    bool dup = false;
+    for (const auto& q : seen) {
+        if (std::abs(p.X() - q.X()) < eps && std::abs(p.Y() - q.Y()) < eps
+            && std::abs(p.Z() - q.Z()) < eps) {
+            dup = true;
+            break;
+        }
+    }
+    if (dup) continue;
+    seen.push_back(p);
+    try {
+        maker.AddFillet(v, radius);
+    } catch (const Standard_Failure&) {
+        // Skip vertices where the fillet is geometrically impossible.
+    }
+}
+maker.Build();
+if (!maker.IsDone()) {
+    throw std::runtime_error(\"fillet2D: operation failed\");
+}
+TopoDS_Face result = TopoDS::Face(maker.Shape());
+return store(BRepTools::OuterWire(result));",
+        includes: &[
+            "BRepBuilderAPI_MakeFace.hxx", "BRepFilletAPI_MakeFillet2d.hxx", "BRepTools.hxx",
+            "BRep_Tool.hxx", "TopExp_Explorer.hxx", "TopoDS.hxx", "gp_Pnt.hxx",
+        ],
+        category: "modeling",
+        return_type: ReturnType::ShapeId,
+    },
     // ── Transforms ────────────────────────────────────────────────
     MethodSpec {
         name: "translate",
@@ -951,6 +1002,34 @@ return store(maker.Shape());",
         ctor_args: "get(id), trsf, true",
         setup_code: "gp_Trsf trsf;\ntrsf.SetTranslation(gp_Vec(dx, dy, dz));",
         includes: &["gp_Trsf.hxx", "gp_Vec.hxx"],
+        category: "transforms",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "transformShapeAx3",
+        kind: MethodKind::CustomBody,
+        params: &[
+            FacadeParam::ShapeId("shapeId"),
+            FacadeParam::Double("fox"), FacadeParam::Double("foy"), FacadeParam::Double("foz"),
+            FacadeParam::Double("fnx"), FacadeParam::Double("fny"), FacadeParam::Double("fnz"),
+            FacadeParam::Double("fxx"), FacadeParam::Double("fxy"), FacadeParam::Double("fxz"),
+            FacadeParam::Double("tox"), FacadeParam::Double("toy"), FacadeParam::Double("toz"),
+            FacadeParam::Double("tnx"), FacadeParam::Double("tny"), FacadeParam::Double("tnz"),
+            FacadeParam::Double("txx"), FacadeParam::Double("txy"), FacadeParam::Double("txz"),
+        ],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+gp_Ax3 fromAx(gp_Pnt(fox, foy, foz), gp_Dir(fnx, fny, fnz), gp_Dir(fxx, fxy, fxz));
+gp_Ax3 toAx(gp_Pnt(tox, toy, toz), gp_Dir(tnx, tny, tnz), gp_Dir(txx, txy, txz));
+gp_Trsf trsf;
+trsf.SetTransformation(toAx, fromAx);
+BRepBuilderAPI_Transform maker(get(shapeId), trsf, true);
+return store(maker.Shape());",
+        includes: &[
+            "BRepBuilderAPI_Transform.hxx", "gp_Ax3.hxx", "gp_Dir.hxx", "gp_Pnt.hxx",
+            "gp_Trsf.hxx",
+        ],
         category: "transforms",
         return_type: ReturnType::ShapeId,
     },
@@ -5263,6 +5342,27 @@ return result;",
         ],
         category: "projection",
         return_type: ReturnType::ProjectionData,
+    },
+    MethodSpec {
+        name: "wireFirstPointTangent",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("wireId")],
+        occt_class: "",
+        ctor_args: "",
+        setup_code: "\
+BRepAdaptor_CompCurve adaptor(TopoDS::Wire(get(wireId)));
+const Standard_Real t0 = adaptor.FirstParameter();
+gp_Pnt p;
+gp_Vec v;
+adaptor.D1(t0, p, v);
+if (v.Magnitude() < 1e-12) {
+    throw std::runtime_error(\"wireFirstPointTangent: zero tangent\");
+}
+v.Normalize();
+return {p.X(), p.Y(), p.Z(), v.X(), v.Y(), v.Z()};",
+        includes: &["BRepAdaptor_CompCurve.hxx", "TopoDS.hxx", "gp_Pnt.hxx", "gp_Vec.hxx"],
+        category: "curve",
+        return_type: ReturnType::VectorDouble,
     },
     // ── Kernel (arena management) ──────────────────────────────────
     MethodSpec {

@@ -334,6 +334,17 @@ export interface OcctRawKernel {
     simplify(id: number): number;
     filletVariable(solidId: number, edgeId: number, startRadius: number, endRadius: number): number;
     offsetWire2D(wireId: number, offset: number, joinType: number): number;
+    fillet2D(wireId: number, radius: number): number;
+    wireFirstPointTangent(wireId: number): EmbindVectorF64;
+    transformShapeAx3(
+        shapeId: number,
+        fox: number, foy: number, foz: number,
+        fnx: number, fny: number, fnz: number,
+        fxx: number, fxy: number, fxz: number,
+        tox: number, toy: number, toz: number,
+        tnx: number, tny: number, tnz: number,
+        txx: number, txy: number, txz: number,
+    ): number;
 
     // Evolution
     translateWithHistory(id: number, dx: number, dy: number, dz: number, inputFaceHashes: EmbindVectorI32, hashUpperBound: number): RawEvolutionData;

@@ -239,6 +239,10 @@ class OcctKernel {
 
     // --- Transforms ---
     uint32_t translate(uint32_t id, double dx, double dy, double dz);
+    uint32_t transformShapeAx3(uint32_t shapeId, double fox, double foy, double foz, double fnx,
+                               double fny, double fnz, double fxx, double fxy, double fxz,
+                               double tox, double toy, double toz, double tnx, double tny,
+                               double tnz, double txx, double txy, double txz);
     uint32_t rotate(uint32_t id, double px, double py, double pz, double dx, double dy, double dz,
                     double angleRad);
     uint32_t scale(uint32_t id, double px, double py, double pz, double factor);
@@ -352,6 +356,7 @@ class OcctKernel {
                             double endRadius);
     uint32_t offsetWire2D(uint32_t wireId, double offset, int joinType);
 
+    uint32_t fillet2D(uint32_t wireId, double radius);
     // --- Evolution (operations with shape history) ---
     EvolutionData translateWithHistory(uint32_t id, double dx, double dy, double dz,
                                        std::vector<int> inputFaceHashes, int hashUpperBound);
@@ -387,6 +392,7 @@ class OcctKernel {
                                 double dy, double dz, double xx, double xy, double xz,
                                 bool hasXAxis);
 
+    std::vector<double> wireFirstPointTangent(uint32_t wireId);
     // --- NURBS introspection ---
     NurbsCurveData getNurbsCurveData(uint32_t edgeId);
     uint32_t curveDegreeElevate(uint32_t edgeId, int elevateBy);

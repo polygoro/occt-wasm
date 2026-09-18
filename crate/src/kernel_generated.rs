@@ -61,6 +61,7 @@ pub(crate) struct GeneratedFuncs {
     fn_fillet_variable: TypedFunc<(u32, u32, f64, f64), u32>,
     fn_fillet_batch: TypedFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>,
     fn_offset_wire2_d: TypedFunc<(u32, f64, i32), u32>,
+    fn_fillet2_d: TypedFunc<(u32, f64), u32>,
     fn_translate: TypedFunc<(u32, f64, f64, f64), u32>,
     fn_rotate: TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_scale: TypedFunc<(u32, f64, f64, f64, f64), u32>,
@@ -228,6 +229,7 @@ pub(crate) struct GeneratedFuncs {
     fn_mesh_batch: TypedFunc<(i32, i32, f64, f64), i32>,
     fn_wireframe: TypedFunc<(u32, f64, i32), i32>,
     fn_project_edges: TypedFunc<(u32, f64, f64, f64, f64, f64, f64, f64, f64, f64, i32), i32>,
+    fn_wire_first_point_tangent: TypedFunc<(u32,), i32>,
     fn_release: TypedFunc<(u32,), i32>,
     fn_release_all: TypedFunc<(), i32>,
     fn_checkpoint: TypedFunc<(), u32>,
@@ -300,6 +302,7 @@ impl GeneratedFuncs {
             fn_fillet_variable: instance.get_typed_func(&mut store, "occt_fillet_variable")?,
             fn_fillet_batch: instance.get_typed_func(&mut store, "occt_fillet_batch")?,
             fn_offset_wire2_d: instance.get_typed_func(&mut store, "occt_offset_wire2_d")?,
+            fn_fillet2_d: instance.get_typed_func(&mut store, "occt_fillet2_d")?,
             fn_translate: instance.get_typed_func(&mut store, "occt_translate")?,
             fn_rotate: instance.get_typed_func(&mut store, "occt_rotate")?,
             fn_scale: instance.get_typed_func(&mut store, "occt_scale")?,
@@ -484,6 +487,8 @@ impl GeneratedFuncs {
             fn_mesh_batch: instance.get_typed_func(&mut store, "occt_mesh_batch")?,
             fn_wireframe: instance.get_typed_func(&mut store, "occt_wireframe")?,
             fn_project_edges: instance.get_typed_func(&mut store, "occt_project_edges")?,
+            fn_wire_first_point_tangent: instance
+                .get_typed_func(&mut store, "occt_wire_first_point_tangent")?,
             fn_release: instance.get_typed_func(&mut store, "occt_release")?,
             fn_release_all: instance.get_typed_func(&mut store, "occt_release_all")?,
             fn_checkpoint: instance.get_typed_func(&mut store, "occt_checkpoint")?,
@@ -1206,6 +1211,18 @@ impl crate::kernel::OcctKernel {
         self.check_error("offset_wire2_d")?;
         if result == 0 {
             return Err(self.read_last_error("offset_wire2_d"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn fillet2_d(&mut self, wire_id: ShapeHandle, radius: f64) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_fillet2_d
+            .call(&mut self.store, (wire_id.0, radius))?;
+        self.check_error("fillet2_d")?;
+        if result == 0 {
+            return Err(self.read_last_error("fillet2_d"));
         }
         Ok(ShapeHandle(result))
     }
@@ -4071,6 +4088,17 @@ impl crate::kernel::OcctKernel {
             return Err(self.read_last_error("project_edges"));
         }
         self.read_projection_result()
+    }
+
+    pub fn wire_first_point_tangent(&mut self, wire_id: ShapeHandle) -> OcctResult<Vec<f64>> {
+        let len = self
+            .generated
+            .fn_wire_first_point_tangent
+            .call(&mut self.store, (wire_id.0,))?;
+        if len < 0 {
+            return Err(self.read_last_error("wire_first_point_tangent"));
+        }
+        self.read_vec_f64_result()
     }
 
     pub fn release(&mut self, id: ShapeHandle) -> OcctResult<()> {

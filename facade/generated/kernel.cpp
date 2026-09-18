@@ -31,6 +31,7 @@
 #include <BRepFill_TypeOfContact.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
+#include <BRepFilletAPI_MakeFillet2d.hxx>
 #include <BRepGProp.hxx>
 #include <BRepLProp_SLProps.hxx>
 #include <BRepLib.hxx>
@@ -982,6 +983,47 @@ uint32_t OcctKernel::offsetWire2D(uint32_t wireId, double offset, int joinType) 
     }
 }
 
+uint32_t OcctKernel::fillet2D(uint32_t wireId, double radius) {
+    try {
+        const TopoDS_Wire wire = TopoDS::Wire(get(wireId));
+        BRepBuilderAPI_MakeFace mkFace(wire);
+        if (!mkFace.IsDone()) {
+            throw std::runtime_error("fillet2D: cannot build face from wire");
+        }
+        TopoDS_Face face = mkFace.Face();
+        BRepFilletAPI_MakeFillet2d maker(face);
+        std::vector<gp_Pnt> seen;
+        const double eps = 1e-7;
+        for (TopExp_Explorer exp(face, TopAbs_VERTEX); exp.More(); exp.Next()) {
+            const TopoDS_Vertex& v = TopoDS::Vertex(exp.Current());
+            gp_Pnt p = BRep_Tool::Pnt(v);
+            bool dup = false;
+            for (const auto& q : seen) {
+                if (std::abs(p.X() - q.X()) < eps && std::abs(p.Y() - q.Y()) < eps
+                    && std::abs(p.Z() - q.Z()) < eps) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (dup) continue;
+            seen.push_back(p);
+            try {
+                maker.AddFillet(v, radius);
+            } catch (const Standard_Failure&) {
+                // Skip vertices where the fillet is geometrically impossible.
+            }
+        }
+        maker.Build();
+        if (!maker.IsDone()) {
+            throw std::runtime_error("fillet2D: operation failed");
+        }
+        TopoDS_Face result = TopoDS::Face(maker.Shape());
+        return store(BRepTools::OuterWire(result));
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("fillet2D: ") + e.what());
+    }
+}
+
 uint32_t OcctKernel::reverseSurfaceU(uint32_t faceId) {
     try {
         TopoDS_Face face = TopoDS::Face(get(faceId));
@@ -1067,6 +1109,19 @@ uint32_t OcctKernel::translate(uint32_t id, double dx, double dy, double dz) {
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("translate: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::transformShapeAx3(uint32_t shapeId, double fox, double foy, double foz, double fnx, double fny, double fnz, double fxx, double fxy, double fxz, double tox, double toy, double toz, double tnx, double tny, double tnz, double txx, double txy, double txz) {
+    try {
+        gp_Ax3 fromAx(gp_Pnt(fox, foy, foz), gp_Dir(fnx, fny, fnz), gp_Dir(fxx, fxy, fxz));
+        gp_Ax3 toAx(gp_Pnt(tox, toy, toz), gp_Dir(tnx, tny, tnz), gp_Dir(txx, txy, txz));
+        gp_Trsf trsf;
+        trsf.SetTransformation(toAx, fromAx);
+        BRepBuilderAPI_Transform maker(get(shapeId), trsf, true);
+        return store(maker.Shape());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("transformShapeAx3: ") + e.what());
     }
 }
 
@@ -2942,6 +2997,23 @@ std::vector<uint32_t> OcctKernel::curveSplit(uint32_t edgeId, double param) {
         return result;
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("curveSplit: ") + e.what());
+    }
+}
+
+std::vector<double> OcctKernel::wireFirstPointTangent(uint32_t wireId) {
+    try {
+        BRepAdaptor_CompCurve adaptor(TopoDS::Wire(get(wireId)));
+        const Standard_Real t0 = adaptor.FirstParameter();
+        gp_Pnt p;
+        gp_Vec v;
+        adaptor.D1(t0, p, v);
+        if (v.Magnitude() < 1e-12) {
+            throw std::runtime_error("wireFirstPointTangent: zero tangent");
+        }
+        v.Normalize();
+        return {p.X(), p.Y(), p.Z(), v.X(), v.Y(), v.Z()};
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("wireFirstPointTangent: ") + e.what());
     }
 }
 

@@ -1894,6 +1894,49 @@ export class OcctKernel {
         return wrap("offsetWire2D", () => handle(this.#raw.offsetWire2D(wire, offset, joinType)));
     }
 
+    fillet2D(wire: ShapeHandle, radius: number): ShapeHandle {
+        return wrap("fillet2D", () => handle(this.#raw.fillet2D(wire, radius)));
+    }
+
+    /**
+     * Analytical point and unit tangent at a wire's first parameter
+     * (`BRepAdaptor_CompCurve::D1`). Places a sweep profile at the spine start
+     * without tessellating, unlike {@link curveTangent}, which needs a
+     * parameter and returns no point.
+     * @throws OcctError
+     */
+    wireFirstPointTangent(wire: ShapeHandle): { point: Vec3; tangent: Vec3 } {
+        return wrap("wireFirstPointTangent", () => {
+            const v = this.#drainVector(this.#raw.wireFirstPointTangent(wire), Float64Array);
+            return {
+                point: { x: v[0]!, y: v[1]!, z: v[2]! },
+                tangent: { x: v[3]!, y: v[4]!, z: v[5]! },
+            };
+        });
+    }
+
+    /**
+     * Transform a shape by the `gp_Trsf` that maps the `from` frame onto the
+     * `to` frame (`gp_Trsf::SetTransformation(gp_Ax3, gp_Ax3)`), the same path
+     * OCP takes -- so results match it numerically rather than only closely.
+     * @throws OcctError
+     */
+    transformShapeAx3(
+        shape: ShapeHandle,
+        from: { origin: Vec3; normal: Vec3; xDir: Vec3 },
+        to: { origin: Vec3; normal: Vec3; xDir: Vec3 },
+    ): ShapeHandle {
+        return wrap("transformShapeAx3", () => handle(this.#raw.transformShapeAx3(
+            shape,
+            from.origin.x, from.origin.y, from.origin.z,
+            from.normal.x, from.normal.y, from.normal.z,
+            from.xDir.x, from.xDir.y, from.xDir.z,
+            to.origin.x, to.origin.y, to.origin.z,
+            to.normal.x, to.normal.y, to.normal.z,
+            to.xDir.x, to.xDir.y, to.xDir.z,
+        )));
+    }
+
     // =======================================================================
     // Evolution (operations with shape history)
     // =======================================================================
