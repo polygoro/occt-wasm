@@ -1,15 +1,16 @@
 # occt-wasm 保守ガイド — ローカル改変の一覧と再ビルド手順
 
 このディレクトリは upstream [andymai/occt-wasm](https://github.com/andymai/occt-wasm)
-**v4.3.2** のチェックアウトに**ローカル改変を積んだ状態**で運用している。
+のチェックアウトに**ローカル改変を積んだ状態**で運用している。
 ビルド成果物は **fork のリリース資産**として配布し、
-`typescript/packages/{core,cli}/package.json` が URL で直接参照する:
-`https://github.com/polygoro/occt-wasm/releases/download/v4.3.2-psN/occt-wasm-4.3.2-psN.tgz`
+`polyscript-ts/packages/{core,cli}/package.json` が URL で直接参照する:
+`https://github.com/polygoro/occt-wasm/releases/download/v<upstream>-psN/occt-wasm-<upstream>-psN.tgz`
 
-パッチを積んだブランチは **`ps`**。upstream の新版に追従するときもこのブランチを
-rebase し、`v<upstream>-psN` のタグでリリースする。
+ブランチは **`ps-v<upstream>`**。新版に追従するときは新しいタグから
+`ps-v<新版>` を切り、旧ブランチのコミットを cherry-pick して
+`v<upstream>-psN` のタグでリリースする。
 
-> **ベースは upstream v5.3.0**(2026-09-18 に v4.3.2 から追従)。**OCCT は 8.0.1**(andymai fork の `wasm-patches-v5` = a9ee3e8)。
+> **ベースは upstream v5.3.5**(2026-09-25 に v5.3.0 から追従)。**OCCT は 8.0.1**(`polygoro/OCCT` の `ps-v6-geomlib` = e1421466)。
 > Python OCP と同じ 7.9.3 に揃える当初方針は 2026-09-01 に放棄した。
 > 経緯は `devel/archive/occt8-impact202609.md`、v1.7.0 からの追従計画と
 > 既存 fix の要不要判定は `devel/occt-wasm-upgrade202609.md`。
@@ -62,16 +63,13 @@ cargo xtask codegen && cargo fmt --all
 | `xtask/src/codegen/config.rs` | `fillet2D()` 追加 | 2Dワイヤの角丸。upstream に `BRepFilletAPI_MakeFillet2d` の口はない。**上流 PR 候補** |
 | 〃 | `wireFirstPointTangent()` 追加 | sweep 開始点の解析的 D1 接線 |
 | 〃 | `transformShapeAx3()` 追加 | sweep の座標系変換を Python OCP の経路に一致させる |
-| 〃 | `offsetWire2D()` の単一辺対応 | **上流 PR 提出中 andymai#338**。マージされたら消える |
-| 〃 | `queryBatch` / `draftPrism` の bbox を `useTriangulation=false` 明示に | **上流 PR 提出中 andymai#337**。マージされたら消える |
-| `occt/`(submodule) | pin `a9ee3e8` = upstream pin `055a9a8` + GeomLib flat-deviation 高速化 1 コミット。加えて作業ツリーに **OCCT 本体 patch**(`patches/0001-IntPatch-*.patch`) | らせん工具の `cut` が無言で無切削になる件。上流 Open-Cascade-SAS/OCCT#1543 / PR #1544。詳細は `../devel/occt-helix-cut-bug202609.md` |
-| 〃 | `fillet2D()` 追加 | 2Dワイヤの角丸(PolyScript の 2D fillet)。upstream に `BRepFilletAPI_MakeFillet2d` の口はない |
 | 〃 | `wireFirstPointTangent()` 追加 | sweep 開始点の解析的 D1 接線。upstream の `curveTangent` はパラメータを要求し点を返さない。**`ReturnType::VectorDouble`(6要素)** で返している — `ReturnType` に構造体を足さずに済むため |
 | 〃 | `transformShapeAx3()` 追加 | sweep の座標系変換を Python OCP の経路(`gp_Trsf::SetTransformation(gp_Ax3, gp_Ax3)`)に一致させる |
-| `facade/include/occt_kernel.h` | 上記5メソッドの宣言 | |
-| `facade/include/occt_kernel.h` / `ts/src/{raw-types,index,worker}.ts` | 上記 3 追加メソッドの宣言と TS ラッパー(`worker.ts` は `fillet2D` のみ。`wireFirstPointTangent` / `transformShapeAx3` は core が同期で呼ぶ) | |
-| `occt/`(submodule の作業ツリー) | **OCCT 本体への patch**(**ps3**, 2026-09-16): `IntPatch_ImpPrmIntersection::Perform` でシーム分割後の walking line 片に制限頂点を再付与、`IntPatch_RstInt::PutVertexOnLine` の閉曲面 2D 比較を周期を法とした差に | らせんツールの `cut` が、ツールが面境界を横切る角度によって**無言で無切削**になる(valid・1 solid・体積不変)。原因は交線計算(IntPatch)で面境界の頂点が失われ、中点分類で面内区間ごと捨てられること。patch 本体は `patches/0001-IntPatch-*.patch`(+52/−10、2 ファイル)。submodule は commit せず作業ツリー改変のまま `COPY occt/` で Docker に入る。クリーンな checkout に戻したら `git -C occt apply ../patches/0001-*.patch`。調査・検証・上流報告草稿: `../devel/occt-helix-cut-bug202609.md` |
-| `occt/`(submodule) | `origin/wasm-patches-v5`(a9ee3e8) | OCCT 8.0.1 + WASM例外互換パッチ + GeomLib flat-deviation fast path。upstream main の pin(055a9a8)より**1コミット先行**しており、この1コミットが gridfinity boolean 約-20%を担う |
+| `facade/include/occt_kernel.h` / `ts/src/{raw-types,index,worker}.ts` | 上記 3 メソッドの宣言と TS ラッパー(`worker.ts` は `fillet2D` のみ。`wireFirstPointTangent` / `transformShapeAx3` は core が同期で呼ぶ) | |
+| `ts/src/views.ts` | iso の視点基底を +X−Y+Z に | upstream は +X+Y+Z で、live ビューアや一般的な CAD と X/Y が入れ替わる。**上流 PR 候補** |
+| `ts/src/{png,views,font5x7}.ts`、`test/png.test.ts` | PNG 出力と、SVG と共有する投影・レイアウト | SVG と同じ視点・レイアウトで PNG を書く。サムネイル用途では SVG(数千パス)が使えない。**上流 PR 候補** |
+| `occt/`(submodule) | pin `e1421466` = `polygoro/OCCT` の `ps-v6-geomlib` | upstream v5.3.5 は `wasm-patches-v6`(c7f60ff、null curve ガード)を指すが、これは `wasm-patches-v5`(a9ee3e8、GeomLib flat-deviation 高速化)の**兄弟**で、両者とも 055a9a8 から分岐している。v6 をそのまま採ると gridfinity boolean の実測 約-20% を失うため、v6 に GeomLib のコミットを cherry-pick したブランチを使う |
+| `occt/`(submodule の作業ツリー) | **OCCT 本体への patch**(`patches/0001-IntPatch-*.patch`、+52/−10、2 ファイル) | らせんツールの `cut` が、ツールが面境界を横切る角度によって**無言で無切削**になる(valid・1 solid・体積不変)。原因は交線計算(IntPatch)で面境界の頂点が失われ、中点分類で面内区間ごと捨てられること。submodule は commit せず作業ツリー改変のまま `COPY occt/` で Docker に入る。クリーンな checkout に戻したら `git -C occt apply ../patches/0001-*.patch`。上流 Open-Cascade-SAS/OCCT#1543 / PR #1544。調査・検証: `../devel/occt-helix-cut-bug202609.md` |
 
 **`transformShapeAx3` は19スカラー**で wasmtime の16引数上限を超えるため、
 codegen が「npm-only(Rust crate から到達不可)」と警告する。upstream 自身の
@@ -89,6 +87,15 @@ codegen が「npm-only(Rust crate から到達不可)」と警告する。upstre
 | `test/bench.test.ts` の 100ms→300ms | upstream #139 / #251 / #254 で catastrophic-only 化 + ランナー速度で正規化済み |
 | `getBoundingBox` を `AddOptimal` に変更 | upstream 3.0.0 (#98) が同じ変更を実施 |
 | `sweepPipeShell` の binormal 引数 | upstream `sweepAdvanced` / `sweepOriented` の `SweepMode.FixedUp` が同等 |
+
+### 1.4 v5.3.5 追従で不要になったローカル改変(2026-09-25)
+
+upstream が我々の PR を取り込んだので削除した:
+
+| 改変 | 取り込み先 |
+|---|---|
+| `offsetWire2D()` の単一辺対応 | andymai#338(我々の PR)、v5.3.1 |
+| `queryBatch` / `draftPrism` の bbox を `useTriangulation=false` 明示に | andymai#337(我々の PR)、v5.3.1 |
 
 ### 1.3 v5.3.0 追従で不要になったローカル改変(2026-09-18)
 
@@ -129,8 +136,9 @@ facade / codegen / ts-ラッパー / OCCT に触れたときだけ必要。
 cd occt-wasm
 
 # 1) OCCT submodule が正しい状態か確認
-git -C occt rev-parse HEAD      # → a9ee3e80c57f77665147896d3b22a09c05fec6c5
-git -C occt describe --tags     # → V8_0_0_rc4-165-ga9ee3e80c5
+git -C occt rev-parse HEAD      # → e1421466b33a36609383f2988da61a0b3170cc0e
+git -C occt describe --tags     # → V8_0_0_rc4-166-ge1421466b3
+git -C occt diff --stat         # → IntPatch 2ファイル(patches/0001-* が当たっている)
 
 # 2) config.rs / emitter.rs / occt_kernel.h / ts を編集(§1.2 の表に追記すること)
 cargo xtask codegen && cargo fmt --all
@@ -141,37 +149,39 @@ cargo test -p xtask
 (cd ts && npm install && npx tsgo --noEmit && npx eslint src/)
 
 # 4) ビルド(テストゲート込み。ログは必ずファイルに落とす)
-TAG=ps2   # ← 番号を上げる
+VER=5.3.5
+TAG=ps1   # ← 番号を上げる
 DOCKER_BUILDKIT=1 docker buildx build --builder occt-builder \
-    --progress=plain -t "occt-wasm:4.3.2-${TAG}" --load . \
-    > /tmp/occt-build-${TAG}.log 2>&1
+    --progress=plain -t "occt-wasm:${VER}-${TAG}" --load . \
+    > /tmp/occt-build-${VER}-${TAG}.log 2>&1
 echo "exit=$?"
 
 # 5) tgz を抽出
 #    Dockerfile が `cd ts && npm run build` まで済ませているので、
 #    コンテナ側では version を書き換えて pack するだけでよい。
-CID=$(docker create "occt-wasm:4.3.2-${TAG}" bash -c "
+CID=$(docker create "occt-wasm:${VER}-${TAG}" bash -c "
     set -e
     cd /workspace/ts
-    sed -i 's|\"version\": \"4.3.2\"|\"version\": \"4.3.2-${TAG}\"|' package.json
+    sed -i 's|\"version\": \"${VER}\"|\"version\": \"${VER}-${TAG}\"|' package.json
     npm pack --pack-destination /tmp/
 ")
 docker start -a "$CID"
-docker cp "$CID:/tmp/occt-wasm-4.3.2-${TAG}.tgz" /tmp/
+docker cp "$CID:/tmp/occt-wasm-${VER}-${TAG}.tgz" /tmp/
 docker rm "$CID"
 
 # 6) fork にリリース(gh を polygoro に切り替えてから: gh auth switch --user polygoro)
-git push polygoro ps
-git tag -a "v4.3.2-${TAG}" -m "PolyScript build: upstream v4.3.2 + local facade patches" ps
-git push polygoro "v4.3.2-${TAG}"
-gh release create "v4.3.2-${TAG}" --repo polygoro/occt-wasm \
-    --title "v4.3.2-${TAG} — PolyScript build" \
-    --notes "upstream v4.3.2 + PolyScript facade patches。内訳は MAINTENANCE.md 1.2" \
-    "/tmp/occt-wasm-4.3.2-${TAG}.tgz"
+git push polygoro "ps-v${VER}"
+git -C occt push polygoro ps-v6-geomlib   # submodule の pin 先も fork に置く
+git tag -a "v${VER}-${TAG}" -m "PolyScript build: upstream v${VER} + local facade patches" "ps-v${VER}"
+git push polygoro "v${VER}-${TAG}"
+gh release create "v${VER}-${TAG}" --repo polygoro/occt-wasm \
+    --title "v${VER}-${TAG} — PolyScript build" \
+    --notes "upstream v${VER} + PolyScript facade patches。内訳は MAINTENANCE.md 1.2" \
+    "/tmp/occt-wasm-${VER}-${TAG}.tgz"
 
 # 6b) PolyScript 側の参照を差し替えてインストール
-cd ../typescript
-URL="https://github.com/polygoro/occt-wasm/releases/download/v4.3.2-${TAG}/occt-wasm-4.3.2-${TAG}.tgz"
+cd ../polyscript-ts
+URL="https://github.com/polygoro/occt-wasm/releases/download/v${VER}-${TAG}/occt-wasm-${VER}-${TAG}.tgz"
 sed -i "s|https://github.com/polygoro/occt-wasm/releases/download/[^\"]*|$URL|" \
     packages/core/package.json packages/cli/package.json
 pnpm install && make build
