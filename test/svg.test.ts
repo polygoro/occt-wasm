@@ -151,8 +151,9 @@ describe("view geometry", () => {
         bottom: { x: [1, 0], y: [0, 1] },
         right: { y: [1, 0], z: [0, -1] },
         left: { y: [-1, 0], z: [0, -1] },
-        // Isometric: X and Y leave the origin 30 degrees below horizontal.
-        iso: { x: [-Math.sqrt(3) / 2, 0.5], y: [Math.sqrt(3) / 2, 0.5], z: [0, -1] },
+        // Isometric, camera in +X-Y+Z: X leaves the origin 30 degrees below
+        // horizontal to the right, Y 30 degrees above it to the right.
+        iso: { x: [Math.sqrt(3) / 2, 0.5], y: [Math.sqrt(3) / 2, -0.5], z: [0, -1] },
     };
 
     for (const view of VIEWS) {
