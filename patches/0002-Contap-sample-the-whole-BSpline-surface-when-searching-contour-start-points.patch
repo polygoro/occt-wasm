@@ -1,0 +1,16 @@
+diff --git a/src/ModelingAlgorithms/TKHLR/Contap/Contap_HContTool.cxx b/src/ModelingAlgorithms/TKHLR/Contap/Contap_HContTool.cxx
+index eb919ab365..248c5d5b7f 100644
+--- a/src/ModelingAlgorithms/TKHLR/Contap/Contap_HContTool.cxx
++++ b/src/ModelingAlgorithms/TKHLR/Contap/Contap_HContTool.cxx
+@@ -189,8 +189,9 @@ void Contap_HContTool::SamplePoint(const occ::handle<Adaptor3d_Surface>& S,
+     int nbIntV = NbSamplesV(S, vinf, vsup) / 3;
+     if (nbIntU * nbIntV > 5)
+     {
+-      int indU = (Index - 1) / nbIntU;        //----   0 --> nbIntV
+-      int indV = (Index - 1) - indU * nbIntU; //----   0 --> nbIntU
++      // Index runs over an nbIntU x nbIntV grid, U fastest.
++      int indV = (Index - 1) / nbIntU;        //----   0 --> nbIntV - 1
++      int indU = (Index - 1) - indV * nbIntU; //----   0 --> nbIntU - 1
+ 
+       U = uinf + ((usup - uinf) / ((double)(nbIntU + 1))) * (double)(indU + 1);
+       V = vinf + ((vsup - vinf) / ((double)(nbIntV + 2))) * (double)(indV + 1);

@@ -70,6 +70,7 @@ cargo xtask codegen && cargo fmt --all
 | `ts/src/{png,views,font5x7}.ts`、`test/png.test.ts` | PNG 出力と、SVG と共有する投影・レイアウト | SVG と同じ視点・レイアウトで PNG を書く。サムネイル用途では SVG(数千パス)が使えない。**上流 PR 候補** |
 | `occt/`(submodule) | pin `e1421466` = `polygoro/OCCT` の `ps-v6-geomlib` | upstream v5.3.5 は `wasm-patches-v6`(c7f60ff、null curve ガード)を指すが、これは `wasm-patches-v5`(a9ee3e8、GeomLib flat-deviation 高速化)の**兄弟**で、両者とも 055a9a8 から分岐している。v6 をそのまま採ると gridfinity boolean の実測 約-20% を失うため、v6 に GeomLib のコミットを cherry-pick したブランチを使う |
 | `occt/`(submodule の作業ツリー) | **OCCT 本体への patch**(`patches/0001-IntPatch-*.patch`、+52/−10、2 ファイル) | らせんツールの `cut` が、ツールが面境界を横切る角度によって**無言で無切削**になる(valid・1 solid・体積不変)。原因は交線計算(IntPatch)で面境界の頂点が失われ、中点分類で面内区間ごと捨てられること。submodule は commit せず作業ツリー改変のまま `COPY occt/` で Docker に入る。クリーンな checkout に戻したら `git -C occt apply ../patches/0001-*.patch`。上流 Open-Cascade-SAS/OCCT#1543 / PR #1544。調査・検証: `../devel/occt-helix-cut-bug202609.md` |
+| 〃 | **OCCT 本体への patch その2**(`patches/0002-Contap-*.patch`、+3/−2、1 ファイル) | loft など U と V の節点数が大きく違う BSpline 面で、HLR の輪郭線(シルエット)が**無言で出ない**。`Contap_HContTool::SamplePoint` が内部サンプル格子の U/V 添字を取り違え、輪郭の始点探索が継ぎ目近くの細い帯(大半は定義域外)しか見ていなかった。当て方は 0001 と同じ(`git -C occt apply ../patches/0002-*.patch`)。上流未報告(草稿あり)。調査・検証: `../devel/occt-hlr-outline-bug202609.md`、回帰テスト `test/projection-outline.test.ts` |
 
 **`transformShapeAx3` は19スカラー**で wasmtime の16引数上限を超えるため、
 codegen が「npm-only(Rust crate から到達不可)」と警告する。upstream 自身の
@@ -138,7 +139,7 @@ cd occt-wasm
 # 1) OCCT submodule が正しい状態か確認
 git -C occt rev-parse HEAD      # → e1421466b33a36609383f2988da61a0b3170cc0e
 git -C occt describe --tags     # → V8_0_0_rc4-166-ge1421466b3
-git -C occt diff --stat         # → IntPatch 2ファイル(patches/0001-* が当たっている)
+git -C occt diff --stat         # → IntPatch 2ファイル + Contap 1ファイル(patches/0001-*, 0002-* が当たっている)
 
 # 2) config.rs / emitter.rs / occt_kernel.h / ts を編集(§1.2 の表に追記すること)
 cargo xtask codegen && cargo fmt --all
