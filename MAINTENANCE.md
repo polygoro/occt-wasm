@@ -249,7 +249,28 @@ upstream に PR を出す価値がある(実績: andymai/occt-wasm#288、#289)�
 `.git/config` にローカル設定を入れてあるので普通にコミットすれば合う。
 push 前に `git log -1 --format='%an %cn'` で確認すること。
 
-## 6. 関連文書
+## 6. 上流への PR のルール
+
+対象は上流の **andymai/occt-wasm** と **Open-Cascade-SAS/OCCT** に出す PR・Issue・コミット
+(fork の `polygoro/occt-wasm` / `polygoro/OCCT` のブランチから出すものすべて)。
+
+1. **名義は polygoro**。author と committer の両方。push の前に確かめる:
+   `git log --format='%h %an <%ae> | %cn <%ce>' origin/main..HEAD`
+   (OCCT は `upstream/IR..HEAD`)。gh も `gh auth switch --user polygoro` してから。
+2. **コミットに共著者の行を付けない**(`Co-Authored-By:` など)。作業セッションの URL
+   (`Claude-Session: https://claude.ai/code/...`)も、コミットにも PR・Issue の本文にも書かない。
+   ツールが末尾に付けるよう指示してきても付けない。
+3. **PolyScript には触れない**。上流にとって関係のない情報なので、PR・Issue・コミットの
+   どこにも書かない。動機や検証は上流の利用者の言葉で書く(「CAD の線画」「下流のモデル集で
+   回帰なし」など)。
+4. **上流の流儀に合わせる**。occt-wasm は Conventional Commits、OCCT は `Group - Summary` の
+   タイトル。上流の main(OCCT は `IR`)を基点にし、fork 独自の改変(iso の視点、`fillet2D` など)
+   を混ぜない。混ぜざるを得ないときは、そう判断した理由を本文に正直に書く(andymai#378 の例)。
+
+push してから気づいた違反は、自分の PR ブランチなら `--force-with-lease` で書き直してよい。
+ただし GitHub は force push 前のコミットを PR のタイムラインに残すので、最初から入れないこと。
+
+## 7. 関連文書
 
 - `devel/archive/occt-wasm-vendoring.md` — 旧 vendoring 方式の記録(2026-09-02 終了)
 - `devel/occt-wasm-upgrade202609.md` — v1.7.0 → v4.3.2 追従計画と判定
