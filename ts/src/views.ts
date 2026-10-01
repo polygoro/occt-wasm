@@ -104,9 +104,17 @@ export function basisFor(view: ViewName): ViewBasis {
         case "left":
             return basis(v(1, 0, 0), v(0, -1, 0));
         case "iso":
-            // Camera in the +X+Y+Z octant looking at the origin with +Z up, so
-            // +X runs to the lower left and +Y to the lower right.
-            return basis(normalize(v(-1, -1, -1)), normalize(v(-1, 1, 0)));
+            // Camera in the +X-Y+Z octant looking at the origin with +Z up, so
+            // +X runs to the lower right, +Y to the upper right and +Z up.
+            //
+            // PolyScript-local: upstream puts the camera in +X+Y+Z, which
+            // mirrors the model left-to-right against every other view here.
+            // `front` looks along +Y, i.e. from the -Y side, and the Z-up CAD
+            // convention that follows from it (XZ is the front plane) puts the
+            // isometric camera on the -Y side too -- as SolidWorks, Inventor,
+            // Fusion, FreeCAD and Onshape all do, and as the PolyScript 3D
+            // viewer does with its camera at (+x, -y, +z).
+            return basis(normalize(v(-1, 1, -1)), normalize(v(1, 1, 0)));
     }
 }
 
