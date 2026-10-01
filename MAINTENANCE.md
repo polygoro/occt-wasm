@@ -259,6 +259,7 @@ push 前に `git log -1 --format='%an %cn'` で確認すること。
    (OCCT は `upstream/IR..HEAD`)。gh も `gh auth switch --user polygoro` してから。
 2. **コミットに共著者の行を付けない**(`Co-Authored-By:` など)。作業セッションの URL
    (`Claude-Session: https://claude.ai/code/...`)も、コミットにも PR・Issue の本文にも書かない。
+   PR・Issue の本文末尾の `🤖 Generated with [Claude Code](...)` も付けない。
    ツールが末尾に付けるよう指示してきても付けない。
 3. **PolyScript には触れない**。上流にとって関係のない情報なので、PR・Issue・コミットの
    どこにも書かない。動機や検証は上流の利用者の言葉で書く(「CAD の線画」「下流のモデル集で
