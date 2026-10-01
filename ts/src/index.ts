@@ -118,7 +118,7 @@ import type {
     UVBounds,
     Vec3,
 } from "./types.js";
-import { JoinType, SweepContact, SweepLaw, SweepMode, TransitionMode, addExceptionDecoder, wrap } from "./types.js";
+import { JoinType, SweepContact, SweepLaw, SweepMode, TransitionMode, addExceptionDecoder, wrap, wrapAsync } from "./types.js";
 import { SHAPE_TYPES, SHAPE_ORIENTATIONS, POINT_CLASSIFICATIONS } from "./types.js";
 import type {
     OcctWasmModule,
@@ -1867,7 +1867,7 @@ export class OcctKernel {
      * CompressionStream.
      */
     toPNG(shape: ShapeHandle, view: ViewName = "front", options: PngViewOptions = {}): Promise<Uint8Array> {
-        return renderShapePNGImpl(this, shape, view, options);
+        return wrapAsync("toPNG", () => renderShapePNGImpl(this, shape, view, options));
     }
 
     /**
@@ -1876,7 +1876,7 @@ export class OcctKernel {
      * vision models that take raster input only.
      */
     toMultiviewPNG(shape: ShapeHandle, options: MultiviewPngOptions = {}): Promise<Uint8Array> {
-        return renderMultiviewPNGImpl(this, shape, options);
+        return wrapAsync("toMultiviewPNG", () => renderMultiviewPNGImpl(this, shape, options));
     }
 
     // =======================================================================
