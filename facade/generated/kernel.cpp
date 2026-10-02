@@ -28,6 +28,7 @@
 #include <BRepClass3d_SolidClassifier.hxx>
 #include <BRepClass_FaceClassifier.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
+#include <BRepFill.hxx>
 #include <BRepFill_TypeOfContact.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
@@ -144,6 +145,7 @@
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Solid.hxx>
 #include <TopoDS_Wire.hxx>
 #include <XCAFDoc_ColorTool.hxx>
 #include <XCAFDoc_ColorType.hxx>
@@ -1719,6 +1721,39 @@ uint32_t OcctKernel::makeEllipseArc(double cx, double cy, double cz, double nx, 
         return store(maker.Shape());
     } catch (const Standard_Failure& e) {
         throw std::runtime_error(std::string("makeEllipseArc: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::makeRuledFace(uint32_t edge1Id, uint32_t edge2Id) {
+    try {
+        const TopoDS_Shape& e1 = get(edge1Id);
+        const TopoDS_Shape& e2 = get(edge2Id);
+        if (e1.ShapeType() != TopAbs_EDGE || e2.ShapeType() != TopAbs_EDGE) {
+            throw std::runtime_error("makeRuledFace: both arguments must be edges");
+        }
+        TopoDS_Face face = BRepFill::Face(TopoDS::Edge(e1), TopoDS::Edge(e2));
+        if (face.IsNull()) {
+            throw std::runtime_error("makeRuledFace: could not build the ruled surface");
+        }
+        return store(face);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("makeRuledFace: ") + e.what());
+    }
+}
+
+uint32_t OcctKernel::orientClosedSolid(uint32_t solidId) {
+    try {
+        const TopoDS_Shape& s = get(solidId);
+        if (s.ShapeType() != TopAbs_SOLID) {
+            throw std::runtime_error("orientClosedSolid: argument must be a solid");
+        }
+        TopoDS_Solid solid = TopoDS::Solid(s);
+        if (!BRepLib::OrientClosedSolid(solid)) {
+            throw std::runtime_error("orientClosedSolid: the solid is not closed");
+        }
+        return store(solid);
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(std::string("orientClosedSolid: ") + e.what());
     }
 }
 

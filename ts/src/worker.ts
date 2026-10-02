@@ -57,6 +57,8 @@ export interface OcctWorkerProxy {
     revolve(shape: ShapeHandle, axis: { point: Vec3; direction: Vec3 }, angleRad: number): Promise<ShapeHandle>;
     fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number): Promise<ShapeHandle>;
     fillet2D(wire: ShapeHandle, radius: number): Promise<ShapeHandle>;
+    makeRuledFace(edge1: ShapeHandle, edge2: ShapeHandle): Promise<ShapeHandle>;
+    orientClosedSolid(solid: ShapeHandle): Promise<ShapeHandle>;
     chamfer(solid: ShapeHandle, edges: ShapeHandle[], distance: number): Promise<ShapeHandle>;
     shell(solid: ShapeHandle, facesToRemove: ShapeHandle[], thickness: number, tolerance: number, joinType?: JoinType.Arc | JoinType.Intersection): Promise<ShapeHandle>;
     offset(solid: ShapeHandle, distance: number, tolerance: number, joinType?: JoinType.Arc | JoinType.Intersection): Promise<ShapeHandle>;
@@ -237,6 +239,8 @@ export class OcctWorker {
     extrude(shape: ShapeHandle, dx: number, dy: number, dz: number) { return this.#proxy.extrude(shape, dx, dy, dz); }
     fillet(solid: ShapeHandle, edges: ShapeHandle[], radius: number) { return this.#proxy.fillet(solid, edges, radius); }
     fillet2D(wire: ShapeHandle, radius: number) { return this.#proxy.fillet2D(wire, radius); }
+    makeRuledFace(edge1: ShapeHandle, edge2: ShapeHandle) { return this.#proxy.makeRuledFace(edge1, edge2); }
+    orientClosedSolid(solid: ShapeHandle) { return this.#proxy.orientClosedSolid(solid); }
     tessellate(shape: ShapeHandle, options?: TessellateOptions) { return this.#proxy.tessellate(shape, options); }
     meshShape(shape: ShapeHandle, options?: TessellateOptions) { return this.#proxy.meshShape(shape, options); }
     meshBatch(shapes: ShapeHandle[], options?: TessellateOptions) { return this.#proxy.meshBatch(shapes, options); }

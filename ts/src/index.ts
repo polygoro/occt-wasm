@@ -811,6 +811,22 @@ export class OcctKernel {
         );
     }
 
+    /**
+     * The ruled surface between two edges as a face (BRepFill::Face). The face
+     * reuses the two edges, so faces built around a shared edge sew together
+     * exactly; a thread, for instance, is one such face per flank per turn.
+     */
+    makeRuledFace(edge1: ShapeHandle, edge2: ShapeHandle): ShapeHandle {
+        return wrap("makeRuledFace", () => handle(this.#raw.makeRuledFace(edge1, edge2)));
+    }
+
+    /** Orient a closed solid's faces outward (BRepLib::OrientClosedSolid). A
+     *  solid sewn from faces can come out inside out, and the booleans then
+     *  treat it as its complement. Throws if the solid is not closed. */
+    orientClosedSolid(solid: ShapeHandle): ShapeHandle {
+        return wrap("orientClosedSolid", () => handle(this.#raw.orientClosedSolid(solid)));
+    }
+
     makeHelixWire(origin: Vec3, axis: Vec3, pitch: number, height: number, radius: number): ShapeHandle {
         return wrap("makeHelixWire", () =>
             handle(this.#raw.makeHelixWire(

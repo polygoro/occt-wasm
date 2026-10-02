@@ -204,6 +204,8 @@ export interface OcctRawKernel {
     makeBezierEdge(flatPoints: EmbindVectorF64): number;
     makeBSplineEdge(poles: EmbindVectorF64, weights: EmbindVectorF64, knots: EmbindVectorF64, multiplicities: EmbindVectorI32, degree: number, periodic: boolean): number;
     makeTangentArc(x1: number, y1: number, z1: number, tx: number, ty: number, tz: number, x2: number, y2: number, z2: number): number;
+    makeRuledFace(edge1Id: number, edge2Id: number): number;
+    orientClosedSolid(solidId: number): number;
     makeHelixWire(px: number, py: number, pz: number, dx: number, dy: number, dz: number, pitch: number, height: number, radius: number): number;
     makeHelixWireHanded(px: number, py: number, pz: number, dx: number, dy: number, dz: number, pitch: number, height: number, radius: number, leftHanded: boolean): number;
     makeWire(edgeIds: EmbindVectorU32): number;

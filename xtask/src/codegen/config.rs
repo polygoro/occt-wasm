@@ -1848,6 +1848,54 @@ return store(maker.Shape());",
         return_type: ReturnType::ShapeId,
     },
     MethodSpec {
+        name: "makeRuledFace",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("edge1Id"), FacadeParam::ShapeId("edge2Id")],
+        occt_class: "",
+        ctor_args: "",
+        // BRepFill::Face: the ruled surface between two edges, as a face whose
+        // boundary reuses the two edges. Faces built this way around shared
+        // edges sew together exactly, which a loft of two one-edge wires does
+        // not guarantee.
+        setup_code: "\
+const TopoDS_Shape& e1 = get(edge1Id);
+const TopoDS_Shape& e2 = get(edge2Id);
+if (e1.ShapeType() != TopAbs_EDGE || e2.ShapeType() != TopAbs_EDGE) {
+    throw std::runtime_error(\"makeRuledFace: both arguments must be edges\");
+}
+TopoDS_Face face = BRepFill::Face(TopoDS::Edge(e1), TopoDS::Edge(e2));
+if (face.IsNull()) {
+    throw std::runtime_error(\"makeRuledFace: could not build the ruled surface\");
+}
+return store(face);",
+        includes: &["BRepFill.hxx", "TopoDS.hxx", "TopoDS_Edge.hxx", "TopoDS_Face.hxx", "TopoDS_Shape.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
+        name: "orientClosedSolid",
+        kind: MethodKind::CustomBody,
+        params: &[FacadeParam::ShapeId("solidId")],
+        occt_class: "",
+        ctor_args: "",
+        // BRepLib::OrientClosedSolid: make a closed solid's shell face outward
+        // (a solid sewn from faces can come out inside out, which the booleans
+        // then treat as its complement).
+        setup_code: "\
+const TopoDS_Shape& s = get(solidId);
+if (s.ShapeType() != TopAbs_SOLID) {
+    throw std::runtime_error(\"orientClosedSolid: argument must be a solid\");
+}
+TopoDS_Solid solid = TopoDS::Solid(s);
+if (!BRepLib::OrientClosedSolid(solid)) {
+    throw std::runtime_error(\"orientClosedSolid: the solid is not closed\");
+}
+return store(solid);",
+        includes: &["BRepLib.hxx", "TopoDS.hxx", "TopoDS_Solid.hxx", "TopoDS_Shape.hxx"],
+        category: "construction",
+        return_type: ReturnType::ShapeId,
+    },
+    MethodSpec {
         name: "makeHelixWire",
         kind: MethodKind::CustomBody,
         params: &[

@@ -96,6 +96,8 @@ pub(crate) struct GeneratedFuncs {
     fn_make_bezier_edge: TypedFunc<(i32, i32), u32>,
     fn_make_b_spline_edge: TypedFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), u32>,
     fn_make_ellipse_arc: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
+    fn_make_ruled_face: TypedFunc<(u32, u32), u32>,
+    fn_orient_closed_solid: TypedFunc<(u32,), u32>,
     fn_make_helix_wire: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64), u32>,
     fn_make_helix_wire_handed: TypedFunc<(f64, f64, f64, f64, f64, f64, f64, f64, f64, i32), u32>,
     fn_make_non_planar_face: TypedFunc<(u32,), u32>,
@@ -343,6 +345,9 @@ impl GeneratedFuncs {
             fn_make_b_spline_edge: instance
                 .get_typed_func(&mut store, "occt_make_b_spline_edge")?,
             fn_make_ellipse_arc: instance.get_typed_func(&mut store, "occt_make_ellipse_arc")?,
+            fn_make_ruled_face: instance.get_typed_func(&mut store, "occt_make_ruled_face")?,
+            fn_orient_closed_solid: instance
+                .get_typed_func(&mut store, "occt_orient_closed_solid")?,
             fn_make_helix_wire: instance.get_typed_func(&mut store, "occt_make_helix_wire")?,
             fn_make_helix_wire_handed: instance
                 .get_typed_func(&mut store, "occt_make_helix_wire_handed")?,
@@ -2018,6 +2023,34 @@ impl crate::kernel::OcctKernel {
         self.check_error("make_ellipse_arc")?;
         if result == 0 {
             return Err(self.read_last_error("make_ellipse_arc"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn make_ruled_face(
+        &mut self,
+        edge1_id: ShapeHandle,
+        edge2_id: ShapeHandle,
+    ) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_make_ruled_face
+            .call(&mut self.store, (edge1_id.0, edge2_id.0))?;
+        self.check_error("make_ruled_face")?;
+        if result == 0 {
+            return Err(self.read_last_error("make_ruled_face"));
+        }
+        Ok(ShapeHandle(result))
+    }
+
+    pub fn orient_closed_solid(&mut self, solid_id: ShapeHandle) -> OcctResult<ShapeHandle> {
+        let result = self
+            .generated
+            .fn_orient_closed_solid
+            .call(&mut self.store, (solid_id.0,))?;
+        self.check_error("orient_closed_solid")?;
+        if result == 0 {
+            return Err(self.read_last_error("orient_closed_solid"));
         }
         Ok(ShapeHandle(result))
     }

@@ -222,6 +222,8 @@ class OcctKernel {
                              bool periodic);
     uint32_t makeTangentArc(double x1, double y1, double z1, double tx, double ty, double tz,
                             double x2, double y2, double z2);
+    uint32_t makeRuledFace(uint32_t edge1Id, uint32_t edge2Id);
+    uint32_t orientClosedSolid(uint32_t solidId);
     uint32_t makeHelixWire(double px, double py, double pz, double dx, double dy, double dz,
                            double pitch, double height, double radius);
     uint32_t makeHelixWireHanded(double px, double py, double pz, double dx, double dy, double dz,
